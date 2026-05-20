@@ -1,0 +1,40 @@
+modules:
+  jira:globalPage:
+    - key: jec-event-bridge-global-page
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: JEC Event Bridge
+  webtrigger:
+    - key: jec-callback
+      function: callback
+      urlFormat: v2
+      response:
+        type: dynamic
+  scheduledTrigger:
+    - key: jec-cleanup
+      function: cleanup
+      interval: hour
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: callback
+      handler: index.callback
+    - key: cleanup
+      handler: index.cleanup
+resources:
+  - key: main
+    path: src/frontend/index.tsx
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/e4d5469f-2c1d-4a49-b666-4c28844f0e7f
+permissions:
+  scopes:
+    - storage:app
+    - read:ops-config:jira-service-management
+    - write:ops-config:jira-service-management
+    - delete:ops-config:jira-service-management
