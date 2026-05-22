@@ -6,7 +6,7 @@
  * @see {@link https://developer.atlassian.com/platform/forge/manifest-reference/modules/jira-api-route/|Jira API Route}
  */
 
-import type { ProblemDetails } from "../util/errors";
+import type { ProblemDetails } from "../../util/errors";
 
 // ---------------------------------------------------------------------------
 // Types

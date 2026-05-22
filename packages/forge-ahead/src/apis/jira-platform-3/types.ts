@@ -12348,6 +12348,23 @@ export interface paths {
          *
          *      *  `webhookId` the ID of the webhook.
          *
+         *     ##### Trigger agent #####
+         *
+         *     A post function that triggers a Jira AI agent for the issue after the transition runs, using the configured agent and an optional prompt. The agent run is asynchronous: it is scheduled after the transition finishes and does not block the transition.
+         *
+         *         {
+         *            "ruleKey": "system:trigger-agent",
+         *            "parameters": {
+         *              "agentId": "712020:3c6d3f05-331a-4488-932e-37c34b704720",
+         *              "promptValue": ""
+         *            }
+         *          }
+         *
+         *     Parameters:
+         *
+         *      *  `agentId` the identifier of the agent to trigger (the Atlassian account ID of the agent).
+         *      *  `promptValue` optional text passed to the agent as a user prompt after the transition runs; use an empty string if no extra prompt is needed.
+         *
          *     #### Screen ####
          *
          *     ##### Remind people to update fields #####
@@ -15401,6 +15418,8 @@ export interface components {
         };
         /** @description The default value for a Date custom field. */
         CustomFieldContextDefaultValueDate: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default date in ISO format. Ignored if `useCurrent` is true. */
             date?: string;
             /**
@@ -15416,6 +15435,8 @@ export interface components {
         };
         /** @description The default value for a date time custom field. */
         CustomFieldContextDefaultValueDateTime: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default date-time in ISO format. Ignored if `useCurrent` is true. */
             dateTime?: string;
             /**
@@ -15431,6 +15452,8 @@ export interface components {
         };
         /** @description Default value for a float (number) custom field. */
         CustomFieldContextDefaultValueFloat: {
+            /** @description The ID of the context. */
+            contextId: string;
             /**
              * Format: double
              * @description The default floating-point number.
@@ -15485,6 +15508,8 @@ export interface components {
         };
         /** @description The default text for a Forge collection of strings custom field. */
         CustomFieldContextDefaultValueForgeMultiStringField: {
+            /** @description The ID of the context. */
+            contextId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -15522,6 +15547,8 @@ export interface components {
         };
         /** @description The default value for a Forge object custom field. */
         CustomFieldContextDefaultValueForgeObjectField: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default JSON object. */
             object?: Record<string, never>;
             /**
@@ -15557,6 +15584,8 @@ export interface components {
         };
         /** @description Default value for a labels custom field. */
         CustomFieldContextDefaultValueLabels: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default labels value. */
             labels: string[];
             /**
@@ -15603,6 +15632,8 @@ export interface components {
         };
         /** @description The default value for a multiple version picker custom field. */
         CustomFieldContextDefaultValueMultipleVersionPicker: {
+            /** @description The ID of the context. */
+            contextId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -15627,6 +15658,8 @@ export interface components {
         };
         /** @description The default text for a read only custom field. */
         CustomFieldContextDefaultValueReadOnly: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default text. The maximum length is 255 characters. */
             text?: string;
             /**
@@ -15661,6 +15694,8 @@ export interface components {
         };
         /** @description The default value for a version picker custom field. */
         CustomFieldContextDefaultValueSingleVersionPicker: {
+            /** @description The ID of the context. */
+            contextId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -15673,6 +15708,8 @@ export interface components {
         };
         /** @description The default text for a text area custom field. */
         CustomFieldContextDefaultValueTextArea: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default text. The maximum length is 32767 characters. */
             text?: string;
             /**
@@ -15683,6 +15720,8 @@ export interface components {
         };
         /** @description The default text for a text custom field. */
         CustomFieldContextDefaultValueTextField: {
+            /** @description The ID of the context. */
+            contextId: string;
             /** @description The default text. The maximum length is 254 characters. */
             text?: string;
             /**
@@ -16477,6 +16516,7 @@ export interface components {
             avatarUrls?: {
                 [key: string]: string;
             };
+            deleted?: boolean;
             id?: string;
             key?: string;
             name?: string;
@@ -17267,6 +17307,8 @@ export interface components {
         /** @description Response object for getting a field association scheme. */
         GetFieldAssociationSchemeResponse: {
             description?: string;
+            /** Format: int64 */
+            fieldsCount?: number;
             /** Format: int64 */
             id?: number;
             isDefault?: boolean;
@@ -26797,6 +26839,8 @@ export interface components {
         };
         /** @description The details about a workflow validation error. */
         WorkflowValidationError: {
+            /** @description Additional details about the validation error. */
+            additionalDetails?: string;
             /** @description An error code. */
             code?: string;
             elementReference?: components["schemas"]["WorkflowElementReference"];
@@ -27216,6 +27260,8 @@ export interface operations {
             query?: {
                 /** @description Whether to generate a changelog for this update. */
                 generateChangelog?: boolean;
+                /** @description Whether to generate app events for this update. Suppresses Forge, Connect, OAuth 2.0, and admin-configured webhooks (registered via the Jira admin UI). Note: Suppressing events means that "issue updated" events will not be emitted for your app or any other apps installed in Jira. This may cause other apps to retain stale data for the updated field, resulting in potentially confusing behaviour. We do not recommend using this flag in a Marketplace app as it may result in incompatibilities with other apps that depend on up-to-date issue data. */
+                generateAppEvents?: boolean;
             };
             header?: never;
             path?: never;
@@ -27437,6 +27483,8 @@ export interface operations {
             query?: {
                 /** @description Whether to generate a changelog for this update. */
                 generateChangelog?: boolean;
+                /** @description Whether to generate app events for this update. Suppresses Forge, Connect, OAuth 2.0, and admin-configured webhooks (registered via the Jira admin UI). Note: Suppressing events means that "issue updated" events will not be emitted for your app or any other apps installed in Jira. This may cause other apps to retain stale data for the updated field, resulting in potentially confusing behaviour. We do not recommend using this flag in a Marketplace app as it may result in incompatibilities with other apps that depend on up-to-date issue data. */
+                generateAppEvents?: boolean;
             };
             header?: never;
             path: {
@@ -29483,7 +29531,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /** @example {"description":"Field Association Scheme test description","id":1000,"isDefault":false,"links":{"associations":"rest/api/3/config/fieldschemes/10000/fields","projects":"rest/api/3/config/fieldschemes/10000/projects"},"matchedFilters":{"projectIds":[10001,10002],"query":"query"},"name":"Field Association Scheme test name"} */
+                    /** @example {"description":"Field Association Scheme test description","fieldsCount":5,"id":1000,"isDefault":false,"links":{"associations":"rest/api/3/config/fieldschemes/10000/fields","projects":"rest/api/3/config/fieldschemes/10000/projects"},"matchedFilters":{"projectIds":[10001,10002],"query":"query"},"name":"Field Association Scheme test name"} */
                     "application/json": components["schemas"]["PageBean2GetFieldAssociationSchemeResponse"];
                 };
             };
@@ -54140,7 +54188,9 @@ export interface operations {
     };
     addScreenTabField: {
         parameters: {
-            query?: never;
+            query?: {
+                skipFieldAssociation?: boolean;
+            };
             header?: never;
             path: {
                 /** @description The ID of the screen. */
@@ -60245,7 +60295,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /** @example {"errors":[{"code":"NON_UNIQUE_STATUS_NAME","elementReference":{"statusReference":"1f0443ff-47e4-4306-9c26-0af696059a43"},"level":"ERROR","message":"You must use a unique status name.","type":"STATUS"}]} */
+                    /** @example {"errors":[{"additionalDetails":"Additional details about the error message.","code":"NON_UNIQUE_STATUS_NAME","elementReference":{"statusReference":"1f0443ff-47e4-4306-9c26-0af696059a43"},"level":"ERROR","message":"You must use a unique status name.","type":"STATUS"}]} */
                     "application/json": components["schemas"]["WorkflowValidationErrorList"];
                 };
             };
@@ -60752,7 +60802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /** @example {"errors":[{"code":"NON_UNIQUE_STATUS_NAME","elementReference":{"statusReference":"1f0443ff-47e4-4306-9c26-0af696059a43"},"level":"ERROR","message":"You must use a unique status name.","type":"STATUS"}]} */
+                    /** @example {"errors":[{"additionalDetails":"Additional details about the error message.","code":"NON_UNIQUE_STATUS_NAME","elementReference":{"statusReference":"1f0443ff-47e4-4306-9c26-0af696059a43"},"level":"ERROR","message":"You must use a unique status name.","type":"STATUS"}]} */
                     "application/json": components["schemas"]["WorkflowValidationErrorList"];
                 };
             };

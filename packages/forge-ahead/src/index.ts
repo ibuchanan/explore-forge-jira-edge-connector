@@ -3,12 +3,12 @@ export type {
   ApiRouteFunction,
   ApiRouteRequest,
   ApiRouteResponse,
-} from "./api/index";
+} from "./forge/api/index";
 export {
   buildErrorResponse,
   buildSuccessResponse,
   logApiRouteRequest,
-} from "./api/index";
+} from "./forge/api/index";
 
 // Atlassian Cloud utilities
 export { extractCloudId } from "./cloud/site";

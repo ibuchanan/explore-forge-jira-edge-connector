@@ -8,12 +8,12 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import type { ApiRouteRequest, Logger } from "../../src/api/apiRoute";
+import type { ApiRouteRequest, Logger } from "../../src/forge/api/apiRoute";
 import {
   buildErrorResponse,
   buildSuccessResponse,
   logApiRouteRequest,
-} from "../../src/api/apiRoute";
+} from "../../src/forge/api/apiRoute";
 import { StandardError } from "../../src/util/errors";
 
 const sampleRequest: ApiRouteRequest = {

@@ -3059,15 +3059,6 @@ export interface operations {
           "application/json": unknown;
         };
       };
-      /** @description Returned if the account ID is invalid. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorResponse"];
-        };
-      };
       /** @description Returned if the user is not logged in. */
       401: {
         headers: {
@@ -3079,6 +3070,15 @@ export interface operations {
       };
       /** @description Returned if the user does not have permission to complete this request. */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Returned if the account ID is invalid. */
+      404: {
         headers: {
           [name: string]: unknown;
         };

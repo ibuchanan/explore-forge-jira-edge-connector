@@ -12,10 +12,7 @@
       "!.projen",
       "!**/coverage",
       "!**/dist",
-      "!**/src/jira/platform-3",
-      "!**/src/jira/software",
-      "!**/src/jira/platform-2",
-      "!**/src/jira/servicedesk"
+      "!packages/forge-ahead/src/apis"
     ]
   },
   "formatter": {
