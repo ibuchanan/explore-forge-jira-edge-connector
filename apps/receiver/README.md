@@ -45,22 +45,47 @@ The `--payload` JSON contains:
 
 ### 1. Install JEC
 
-Download and install the JEC binary from your JSM instance. See the [Atlassian documentation](https://support.atlassian.com/jira-service-management-cloud/docs/set-up-jira-edge-connector/) for platform-specific instructions.
+Follow Atlassian's official [Install Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/install-jira-edge-connector/) guide for the latest packages and platform notes.
 
-### 2. Configure JEC
+JEC is distributed as OS-specific installation packages. Atlassian currently documents support for Debian-based Linux, Red Hat-based Linux, and Windows Server environments.
 
-Edit `jec-config.json`:
+1. Download the latest JEC package from Atlassian's `jsm-integration-scripts` repository, as linked from the official install guide.
+2. Install the package for your platform:
+
+   ```bash
+   # Debian-based distributions
+   sudo dpkg -i <your-package-name>.deb
+
+   # Red Hat-based distributions
+   sudo rpm -i <your-package-name>.rpm
+   ```
+
+3. On Windows:
+   1. Extract the JEC zip file into a folder.
+   2. Rename `jecService.json.example` to `jecService<32|64>.json`.
+   3. Set `JECPath` in that service file to the extracted `JiraEdgeConnector<32|64>.exe` path.
+   4. Install the Windows service:
+
+      ```powershell
+      jecService<32|64>.exe install
+      ```
+
+### 2. Configure this receiver
+
+See Atlassian's [Configure Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/configure-jira-edge-connector/) guide for the full configuration reference. For this sample, edit `apps/receiver/jec-config.json`:
 
 ```json
 {
   "apiKey": "<paste-api-key-from-forge-app-channel-setup>",
   "baseUrl": "https://api.atlassian.com",
-  ...
+  "logLevel": "INFO",
   "actionMappings": {
     "dispatchTask": {
       "sourceType": "local",
-      "filepath": "/absolute/path/to/receiver.py",
-      ...
+      "filepath": "/absolute/path/to/apps/receiver/receiver.py",
+      "env": ["JEC_RECEIVER_LOG=/var/log/jec/receiver-events.jsonl"],
+      "stdout": "/var/log/jec/receiver.out.txt",
+      "stderr": "/var/log/jec/receiver.err.txt"
     }
   }
 }
@@ -68,31 +93,45 @@ Edit `jec-config.json`:
 
 The `apiKey` value comes from the Forge app's **Channel Setup** panel after provisioning. The `actionMappings` key `dispatchTask` must match what the Forge app sends as the `action` field.
 
-### 3. Set the receiver log path (optional)
-
-By default, events are appended to `/var/log/jec/receiver-events.jsonl`. Override this with:
+For local testing, prefer `/var/log/jec` or another user-writable directory before switching to `/var/log`:
 
 ```bash
-export JEC_RECEIVER_LOG=/your/preferred/path/receiver-events.jsonl
+mkdir -p /var/log/jec
+chmod +x apps/receiver/receiver.py
 ```
 
-### 4. Replace log append with your integration
+### 3. Point JEC at the config file
 
-In `receiver.py`, find the `append_to_log()` function and replace the file-write with your actual integration:
+JEC reads its config from environment variables. For a local config file, set:
+
+```bash
+export JEC_CONF_SOURCE_TYPE=local
+export JEC_CONF_LOCAL_FILEPATH="$(pwd)/apps/receiver/jec-config.json"
+```
+
+For service-based installs, add those environment variables to the service configuration. Atlassian's [Run Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/run-jira-edge-connector) guide includes service examples for Windows and Linux.
+
+### 4. Start JEC
+
+Start JEC using the installed binary or service for your platform. For an interactive local run, use the installed JEC executable after setting the config environment variables above:
+
+```bash
+JiraEdgeConnector
+```
+
+If your package installs the binary under a different name or location, use that installed path instead. Run the executable with `--help` if you need to confirm supported flags.
+
+JEC will poll the JSM Ops queue and invoke `receiver.py` when a task is dispatched from the Forge app.
+
+### 5. Replace log append with your integration
+
+In `receiver.py`, find the `append_to_log()` function and replace the file-write with your actual integration when adapting this sample for production:
 
 ```python
 def append_to_log(payload: dict) -> None:
-    # Replace this with your real integration:
-    kafka_producer.publish("jec-tasks", payload)
+    # Replace this with your real integration.
+    publish_event(payload)
 ```
-
-### 5. Start JEC
-
-```bash
-jec -conf /path/to/jec-config.json
-```
-
-JEC will poll the JSM Ops queue and invoke `receiver.py` when a task is dispatched from the Forge app.
 
 ## Using this repo as a Git source for JEC
 

@@ -7,6 +7,10 @@
       "outputs": ["dist/**"],
       "cache": true
     },
+    "explore-forge-jira-edge-connector-receiver#build": {
+      "outputs": [],
+      "cache": true
+    },
     "test": {
       "outputs": [],
       "cache": true,

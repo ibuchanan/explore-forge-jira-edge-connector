@@ -17,11 +17,11 @@
     "check": "npm run test && npm run lint && npm run format:check && npm run typecheck",
     "clean": "rm -rf ./dist",
     "dev": "tsdown --watch",
-    "forge:deploy": "source .env && forge deploy --environment development",
-    "forge:install": "source .env && forge install --site \"$SITENAME.atlassian.net\" --product $PRODUCT --environment development --non-interactive",
+    "forge:deploy": "source .env && forge deploy --environment $FORGE_ENVIRONMENT",
+    "forge:install": "source .env && forge install --site \"$SITENAME.atlassian.net\" --product $PRODUCT --environment $FORGE_ENVIRONMENT --non-interactive",
     "forge:lint": "forge lint",
     "forge:uninstall": "source .env && forge uninstall --site \"$SITENAME.atlassian.net\" --product $PRODUCT",
-    "forge:upgrade": "source .env && forge install --upgrade --site \"$SITENAME.atlassian.net\" --product $PRODUCT --environment development --non-interactive",
+    "forge:upgrade": "source .env && forge install --upgrade --site \"$SITENAME.atlassian.net\" --product $PRODUCT --environment $FORGE_ENVIRONMENT --non-interactive",
     "format": "biome format --write",
     "format:check": "biome format",
     "generate": "echo 'Not implemented'",
@@ -35,7 +35,7 @@
     "test:coverage": "echo 'Not implemented'",
     "test:watch": "vitest watch",
     "todo": "grep -rn 'TODO' --exclude='package.json' . --color=auto || echo 'No TODOs found!'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "overrides": {
     "lodash": "^4.18.1",

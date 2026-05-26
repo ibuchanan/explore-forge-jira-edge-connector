@@ -10,13 +10,11 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
 
-    /* Transpiling for Forge bundler (requried) */
+    /* Transpiling for Forge bundler (required) */
     "noEmit": false,
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": true,
-    "moduleResolution": "NodeNext",
-    "module": "NodeNext",
     "jsx": "react-jsx",
 
     /* Strictness */

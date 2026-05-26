@@ -10,7 +10,7 @@ export default defineConfig({
     "forge/remote/index": "./src/forge/remote/index.ts",
     "forge/remote/jwt": "./src/forge/remote/jwt.ts",
   },
-  format: ["esm"],
+  format: ["esm", "cjs"],
   sourcemap: true,
   target: "node20",
   deps: {

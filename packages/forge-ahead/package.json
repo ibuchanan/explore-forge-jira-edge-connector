@@ -6,12 +6,66 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./dist/index.mjs",
-    "./errors": "./dist/util/errors.mjs",
-    "./config": "./dist/config/index.mjs",
-    "./rovo": "./dist/rovo/index.mjs",
-    "./remote": "./dist/forge/remote/index.mjs",
-    "./remote/jwt": "./dist/forge/remote/jwt.mjs",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./errors": {
+      "import": {
+        "types": "./dist/util/errors.d.mts",
+        "default": "./dist/util/errors.mjs"
+      },
+      "require": {
+        "types": "./dist/util/errors.d.cts",
+        "default": "./dist/util/errors.cjs"
+      }
+    },
+    "./config": {
+      "import": {
+        "types": "./dist/config/index.d.mts",
+        "default": "./dist/config/index.mjs"
+      },
+      "require": {
+        "types": "./dist/config/index.d.cts",
+        "default": "./dist/config/index.cjs"
+      }
+    },
+    "./rovo": {
+      "import": {
+        "types": "./dist/rovo/index.d.mts",
+        "default": "./dist/rovo/index.mjs"
+      },
+      "require": {
+        "types": "./dist/rovo/index.d.cts",
+        "default": "./dist/rovo/index.cjs"
+      }
+    },
+    "./remote": {
+      "import": {
+        "types": "./dist/forge/remote/index.d.mts",
+        "default": "./dist/forge/remote/index.mjs"
+      },
+      "require": {
+        "types": "./dist/forge/remote/index.d.cts",
+        "default": "./dist/forge/remote/index.cjs"
+      }
+    },
+    "./remote/jwt": {
+      "import": {
+        "types": "./dist/forge/remote/jwt.d.mts",
+        "default": "./dist/forge/remote/jwt.mjs"
+      },
+      "require": {
+        "types": "./dist/forge/remote/jwt.d.cts",
+        "default": "./dist/forge/remote/jwt.cjs"
+      }
+    },
     "./jira/platform-2": "./src/jira/platform-2/types.ts",
     "./jira/platform-3": "./src/jira/platform-3/types.ts",
     "./jira/servicedesk": "./src/jira/servicedesk/types.ts",
@@ -22,19 +76,24 @@
   "typesVersions": {
     "*": {
       "errors": [
-        "./dist/util/errors.d.mts"
+        "./dist/util/errors.d.mts",
+        "./dist/util/errors.d.cts"
       ],
       "config": [
-        "./dist/config/index.d.mts"
+        "./dist/config/index.d.mts",
+        "./dist/config/index.d.cts"
       ],
       "rovo": [
-        "./dist/rovo/index.d.mts"
+        "./dist/rovo/index.d.mts",
+        "./dist/rovo/index.d.cts"
       ],
       "remote": [
-        "./dist/forge/remote/index.d.mts"
+        "./dist/forge/remote/index.d.mts",
+        "./dist/forge/remote/index.d.cts"
       ],
       "remote/jwt": [
-        "./dist/forge/remote/jwt.d.mts"
+        "./dist/forge/remote/jwt.d.mts",
+        "./dist/forge/remote/jwt.d.cts"
       ],
       "jira/platform-2": [
         "./src/jira/platform-2/types.ts"
