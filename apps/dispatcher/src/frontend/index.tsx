@@ -1,4 +1,4 @@
-import { invoke } from "@forge/bridge";
+import { invoke, router } from "@forge/bridge";
 import ForgeReconciler, {
   Badge,
   Box,
@@ -8,7 +8,6 @@ import ForgeReconciler, {
   Inline,
   Label,
   LoadingButton,
-  RadioGroup,
   SectionMessage,
   Spinner,
   Stack,
@@ -52,6 +51,8 @@ type ChannelSetup = {
   note: string;
 };
 
+const CONFIGURE_MODULE_KEY = "jec-event-bridge-configure-page";
+
 type TaskDetail = {
   task: Task;
   events: TaskEvent[];
@@ -62,17 +63,6 @@ type ResolverResponse<T> = {
   data?: T;
   error?: string;
 };
-
-const modeOptions = [
-  {
-    label: "Simulator (no live JEC required)",
-    value: "simulator",
-  },
-  {
-    label: "JEC (real JSM Ops API)",
-    value: "jec",
-  },
-];
 
 // Maps task/event status to Badge appearance and label.
 // Badge appearances: default | primary | added | removed | important | information | success | danger | neutral | inverse | primaryInverted | discovery | warning
@@ -124,11 +114,9 @@ const App = () => {
   const [setup, setSetup] = useState<ChannelSetup | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
-  const [mode, setMode] = useState<TaskMode>("simulator");
   const [taskName, setTaskName] = useState("");
   const [taskContext, setTaskContext] = useState("");
   const [loading, setLoading] = useState(false);
-  const [provisionLoading, setProvisionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -162,38 +150,16 @@ const App = () => {
     void loadTasks();
   }, [loadSetup, loadTasks]);
 
-  const handleProvision = useCallback(async () => {
-    setProvisionLoading(true);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      const response = await invoke<ResolverResponse<{ setup: ChannelSetup }>>(
-        "provisionChannel",
-        { mode },
-      );
-      if (!response.ok) {
-        setError(response.error || "Provisioning failed.");
-      } else {
-        setSetup(response.data?.setup || null);
-        setSuccessMessage(
-          `Channel provisioned in ${mode} mode. ` +
-            (mode === "jec"
-              ? "Copy the API key into your jec-config.json."
-              : "Simulator is ready — no live JEC required."),
-        );
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setProvisionLoading(false);
-    }
-  }, [mode]);
-
   const handleCreateTask = useCallback(async () => {
     if (!taskName.trim()) {
       setError("Task name is required.");
       return;
     }
+    if (!setup) {
+      setError("Configuration is required before dispatching work.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
@@ -203,7 +169,7 @@ const App = () => {
         {
           name: taskName,
           context: taskContext,
-          mode: setup?.mode || mode,
+          mode: setup.mode,
         },
       );
       if (!response.ok) {
@@ -219,7 +185,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [taskName, taskContext, setup, mode, loadTasks]);
+  }, [taskName, taskContext, setup, loadTasks]);
 
   const handleViewTask = useCallback(async (taskId: string) => {
     setError(null);
@@ -282,37 +248,46 @@ const App = () => {
               </Text>
               <Text>{setup.note}</Text>
               {setup.mode === "jec" && (
-                <SectionMessage appearance="information" title="Customer setup">
+                <SectionMessage appearance="information" title="Receiver setup">
                   <Text>
                     Copy this API key into your jec-config.json under the
-                    channel&apos;s apiKey field, then start the JEC binary.
+                    channel&apos;s apiKey field, then start the JEC binary: {setup.apiKey}
                   </Text>
                 </SectionMessage>
               )}
-              <LoadingButton
-                isLoading={provisionLoading}
-                onClick={handleProvision}
+              <Button
+                appearance="subtle"
+                onClick={() =>
+                  void router.navigate({
+                    target: "module",
+                    moduleKey: CONFIGURE_MODULE_KEY,
+                  })
+                }
               >
-                Re-provision Channel
-              </LoadingButton>
+                Manage configuration
+              </Button>
             </Stack>
           ) : (
-            <Stack space="space.200">
-              <Label labelFor="mode-radio">Select channel mode</Label>
-              <RadioGroup
-                name="mode-radio"
-                options={modeOptions}
-                value={mode}
-                onChange={(e) => setMode(e.target.value as TaskMode)}
-              />
-              <LoadingButton
-                appearance="primary"
-                isLoading={provisionLoading}
-                onClick={handleProvision}
-              >
-                Provision Channel
-              </LoadingButton>
-            </Stack>
+            <SectionMessage appearance="warning" title="Configuration required">
+              <Stack space="space.100">
+                <Text>
+                  Dispatching is blocked until an admin provisions a simulator or
+                  JEC channel. This avoids creating tasks that cannot reach the
+                  on-premise receiver.
+                </Text>
+                <Button
+                  appearance="primary"
+                  onClick={() =>
+                    void router.navigate({
+                      target: "module",
+                      moduleKey: CONFIGURE_MODULE_KEY,
+                    })
+                  }
+                >
+                  Configure App
+                </Button>
+              </Stack>
+            </SectionMessage>
           )}
         </Stack>
       </Box>
@@ -354,6 +329,7 @@ const App = () => {
           <ButtonGroup>
             <LoadingButton
               appearance="primary"
+              isDisabled={!setup}
               isLoading={loading}
               onClick={handleCreateTask}
             >

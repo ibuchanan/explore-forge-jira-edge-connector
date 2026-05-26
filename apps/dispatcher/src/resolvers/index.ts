@@ -14,8 +14,10 @@ import {
   createSimulatorDispatchEvent,
 } from "../infrastructure/jec/simulator-adapter";
 import {
+  deleteChannelSetup,
   getChannelSetup,
   saveChannelSetup,
+  type ChannelSetup,
 } from "../infrastructure/storage/channel-store";
 import {
   appendTaskEvent,
@@ -57,9 +59,86 @@ function failure(error: unknown) {
   return { ok: false, error: toErrorMessage(error) };
 }
 
+type PublicChannelSetup = Omit<ChannelSetup, "apiKey">;
+
+function toPublicSetup(setup: ChannelSetup | null): PublicChannelSetup | null {
+  if (!setup) {
+    return null;
+  }
+
+  return {
+    channelId: setup.channelId,
+    mode: setup.mode,
+    provisionedAt: setup.provisionedAt,
+    note: setup.note,
+  };
+}
+
+function getReceiverSetupDetail(setup: ChannelSetup | null): string {
+  if (!setup) {
+    return "No channel has been provisioned yet.";
+  }
+
+  if (setup.mode === "simulator") {
+    return "Simulator mode is ready; no on-premise receiver is required.";
+  }
+
+  return "Copy the channel API key from the JEC Event Bridge page into jec-config.json and start the receiver.";
+}
+
 resolver.define("getSetupStatus", async () => {
   try {
     return success({ setup: await getChannelSetup() });
+  } catch (error) {
+    return failure(error);
+  }
+});
+
+resolver.define("getConnectionStatus", async () => {
+  try {
+    const setup = await getChannelSetup();
+    return success({
+      isConfigured: !!setup,
+      setup: toPublicSetup(setup),
+    });
+  } catch (error) {
+    return failure(error);
+  }
+});
+
+resolver.define("getConnectionHealth", async () => {
+  try {
+    const setup = await getChannelSetup();
+    const isConfigured = !!setup;
+
+    return success({
+      configured: {
+        ok: isConfigured,
+        detail: setup
+          ? `${setup.mode === "jec" ? "JEC" : "Simulator"} channel ${setup.channelId} provisioned.`
+          : "Provision a simulator or JEC channel from Configure App.",
+      },
+      receiver: {
+        ok: setup?.mode === "simulator" || setup?.mode === "jec",
+        detail: getReceiverSetupDetail(setup),
+      },
+      usage: {
+        ok: isConfigured,
+        detail: isConfigured
+          ? "The JEC Event Bridge page is unblocked for dispatching work."
+          : "The usage page shows a configuration block until setup is complete.",
+      },
+      setup: toPublicSetup(setup),
+    });
+  } catch (error) {
+    return failure(error);
+  }
+});
+
+resolver.define("resetConnection", async () => {
+  try {
+    await deleteChannelSetup();
+    return success({ isConfigured: false, setup: null });
   } catch (error) {
     return failure(error);
   }
@@ -90,26 +169,21 @@ resolver.define(
   async (request: ResolverRequest<CreateTaskPayload>) => {
     try {
       const name = request.payload?.name?.trim() || "On-premise task";
-      const mode = request.payload?.mode || "simulator";
       const cloudId = request.context?.cloudId || "";
-      const existingSetup = await getChannelSetup();
+      const setup = await getChannelSetup();
       const now = nowIso();
 
-      const setup =
-        existingSetup ||
-        (mode === "jec"
-          ? { ...(await provisionJecChannel(cloudId, now)), mode }
-          : createSimulatorChannel(now));
-
-      if (!existingSetup) {
-        await saveChannelSetup(setup);
+      if (!setup) {
+        throw new Error(
+          "The dispatcher is not configured. Ask an admin to provision a channel from Configure App before dispatching work.",
+        );
       }
 
       const task = createTaskProjection({
         id: randomUUID(),
         name,
         context: request.payload?.context,
-        mode,
+        mode: setup.mode,
         channelId: setup.channelId,
         now,
       });
@@ -126,7 +200,7 @@ resolver.define(
       });
 
       const dispatchEvent =
-        mode === "jec"
+        setup.mode === "jec"
           ? await dispatchReportTask(task, cloudId, nowIso())
           : createSimulatorDispatchEvent(task, nowIso());
 

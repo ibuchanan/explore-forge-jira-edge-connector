@@ -21,3 +21,7 @@ export async function saveChannelSetup(
   await kvs.set(STORE_KEYS.setup, setup);
   return setup;
 }
+
+export async function deleteChannelSetup(): Promise<void> {
+  await kvs.delete(STORE_KEYS.setup);
+}
