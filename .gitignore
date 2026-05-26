@@ -38,5 +38,13 @@ yarn-error.log*
 .pnp.*
 dist/
 coverage/
+package-lock.json
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/

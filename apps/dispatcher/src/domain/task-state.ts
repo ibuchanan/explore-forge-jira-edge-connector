@@ -1,8 +1,7 @@
 export const TASK_STATUSES = {
   pending: "pending",
-  running: "running",
-  complete: "complete",
-  failed: "failed",
+  dispatched: "dispatched",
+  dispatch_failed: "dispatch_failed",
   expired: "expired",
 } as const;
 
@@ -10,10 +9,6 @@ export const TASK_EVENT_TYPES = {
   taskCreated: "TASK_CREATED",
   jecChannelProvisioned: "JEC_CHANNEL_PROVISIONED",
   jecDispatchRequested: "JEC_DISPATCH_REQUESTED",
-  callbackAccepted: "CALLBACK_ACCEPTED",
-  taskRunningReported: "TASK_RUNNING_REPORTED",
-  taskCompletedReported: "TASK_COMPLETED_REPORTED",
-  taskFailedReported: "TASK_FAILED_REPORTED",
   taskExpired: "TASK_EXPIRED",
 } as const;
 
@@ -48,8 +43,8 @@ export interface TaskProjection {
 }
 
 const terminalStatuses = new Set<TaskStatus>([
-  TASK_STATUSES.complete,
-  TASK_STATUSES.failed,
+  TASK_STATUSES.dispatched,
+  TASK_STATUSES.dispatch_failed,
   TASK_STATUSES.expired,
 ]);
 
@@ -70,12 +65,6 @@ export function statusFromEvent(
   }
 
   switch (event.type) {
-    case TASK_EVENT_TYPES.taskRunningReported:
-      return TASK_STATUSES.running;
-    case TASK_EVENT_TYPES.taskCompletedReported:
-      return TASK_STATUSES.complete;
-    case TASK_EVENT_TYPES.taskFailedReported:
-      return TASK_STATUSES.failed;
     case TASK_EVENT_TYPES.taskExpired:
       return TASK_STATUSES.expired;
     default:
@@ -110,7 +99,7 @@ export function createTaskProjection(input: {
   return {
     id: input.id,
     name: input.name,
-    context: input.context || "General report context",
+    context: input.context || "General task context",
     mode: input.mode,
     channelId: input.channelId,
     status: TASK_STATUSES.pending,

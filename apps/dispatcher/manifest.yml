@@ -6,12 +6,6 @@ modules:
         function: resolver
       render: native
       title: JEC Event Bridge
-  webtrigger:
-    - key: jec-callback
-      function: callback
-      urlFormat: v2
-      response:
-        type: dynamic
   scheduledTrigger:
     - key: jec-cleanup
       function: cleanup
@@ -19,8 +13,6 @@ modules:
   function:
     - key: resolver
       handler: index.handler
-    - key: callback
-      handler: index.callback
     - key: cleanup
       handler: index.cleanup
 resources:

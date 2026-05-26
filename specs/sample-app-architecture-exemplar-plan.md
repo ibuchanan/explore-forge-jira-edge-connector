@@ -2,24 +2,24 @@
 
 ## Purpose
 
-Build a Forge sample app that demonstrates how Jira Edge Connector can act as an on-premise event bridge for Forge. The sample should be an architecture exemplar: it should prioritize clear boundaries, secure callback handling, task state modeling, storage patterns, and testability over visual polish.
+Build a Forge sample app that demonstrates how Jira Edge Connector can act as an on-premise event bridge for Forge. The sample should be an architecture exemplar: it should prioritize clear boundaries, asynchronous dispatch modeling, storage patterns, and testability over visual polish.
 
 ## Goals
 
-- Demonstrate a Jira-centric asynchronous integration pattern where on-premise work is initiated through Jira Edge Connector and reports progress back to Forge.
+- Demonstrate a Jira-centric asynchronous dispatch pattern where on-premise work is initiated through JEC via the JSM Ops REST API.
 - Use a Jira global page as the user-facing surface.
-- Provision Jira Edge Connector channels from the app.
+- Provision JEC channels from the Forge app.
 - Support real JEC integration while retaining a fallback/simulator path for local development and CI.
-- Store task history as an event log and derive current task state from that log.
-- Authenticate public Forge web trigger callbacks with signed HMAC requests, timestamp validation, nonce/event replay protection, task binding, and channel binding.
+- Store task state as dispatch-only: `pending → dispatched / dispatch_failed`.
 - Keep all JEC-specific API details behind a narrow adapter boundary.
 
 ## Non-goals
 
-- Build a production-ready customer deployment with full operational hardening.
-- Replace customer-specific JEC/on-premise setup documentation.
+- Implement a Forge web trigger callback for JEC completion events (not part of the standard JEC model).
 - Store large or sensitive report artifacts in Forge storage.
-- Build a Custom UI app. The sample should use UI Kit only.
+- Build a Custom UI app — UI Kit only.
+- Replace customer-specific JEC/on-premise setup documentation.
+- Build a production-ready customer deployment with full operational hardening.
 
 ## Resolved decisions
 
@@ -28,10 +28,12 @@ Build a Forge sample app that demonstrates how Jira Edge Connector can act as an
 | Primary goal | Architecture exemplar |
 | UI surface | `jira:globalPage` |
 | JEC fidelity | Real JEC hooks plus fallback/simulator path |
-| JEC setup | App provisions channels |
-| Secret model | Forge encrypted variables for deployment/root secret material; Forge KVS for channel metadata, task records, nonces, and event logs |
-| State model | Event-log-first with derived task projection |
-| Callback auth | Signed HMAC callback requests |
+| JEC setup | App provisions channels via JSM Ops API |
+| Secret model | Forge KVS for channel metadata and task records |
+| State model | Dispatch-only: `pending → dispatched / dispatch_failed` |
+| Callback auth | Removed — not part of the standard JEC model |
+| Script language | Python (stdlib-only) |
+| Repo structure | `apps/dispatcher/` (Forge app), `apps/receiver/` (on-premise assets) |
 | First milestone | Full exemplar |
 
 ## High-level architecture
@@ -39,45 +41,102 @@ Build a Forge sample app that demonstrates how Jira Edge Connector can act as an
 ```text
 Jira global page
   └─ invokes resolver actions
-       ├─ setup/provision JEC channel
-       ├─ create report task
+       ├─ setup/provision JEC channel  → POST /v1/jec/channels
+       ├─ create and dispatch task     → POST /v1/jec/action?channelId=...
        ├─ list tasks
-       ├─ read task detail/event log
        └─ trigger fallback simulator path
 
-JEC / fallback simulator
-  └─ sends signed callback to Forge web trigger
+JEC binary (on-premise, customer-managed)
+  └─ polls JSM Ops queue
+       └─ invokes receiver.py with CLI flags
+            ├─ --payload   (JSON: task details from SendJecActionDto.details)
+            ├─ --apiKey    (JEC API key)
+            ├─ --jsmUrl    (https://api.atlassian.com)
+            ├─ --logLevel
+            └─ --jecNamedPipe (optional: named pipe for result callback)
 
-Forge web trigger
-  ├─ validates HMAC signature
-  ├─ checks timestamp window
-  ├─ rejects replayed nonce/event IDs
-  ├─ validates task + channel binding
-  ├─ appends callback event
-  └─ projects task current state
+apps/receiver/receiver.py
+  ├─ parses CLI flags
+  ├─ validates payload fields (taskId, taskType, etc.)
+  ├─ appends event to local log file   ← stand-in for customer's Kafka queue
+  └─ writes success JSON to --jecNamedPipe (if present)
 
-Scheduled trigger
-  └─ expires stale tasks and prunes old nonces/events
+Scheduled trigger (Forge)
+  └─ expires tasks stuck in `pending` beyond TTL
 ```
 
-## Manifest changes
+## Repo structure
 
-Replace the existing JSM queue page with a Jira global page and add backend surfaces for callbacks and cleanup.
+```text
+apps/
+  dispatcher/          ← Forge app (was: apps/jec-dispatcher/)
+    manifest.yml
+    package.json
+    src/
+      index.ts
+      domain/
+        task-state.ts      ← dispatch-only: pending/dispatched/dispatch_failed
+        signatures.ts      ← REMOVED (no HMAC callback)
+        callback-events.ts ← REMOVED (no callback)
+      infrastructure/
+        jec/
+          jec-channel-adapter.ts   ← real JSM Ops API calls
+          simulator-adapter.ts     ← short-circuits real dispatch for dev/CI
+        storage/
+          channel-store.ts
+          task-store.ts
+          nonce-store.ts  ← REMOVED (no replay protection without callback)
+      resolvers/
+        index.ts
+      scheduled/
+        cleanup.ts
+      shared/
+        constants.ts
+        errors.ts
+    test/
+      ...
 
-Expected modules:
+  receiver/            ← on-premise JEC assets (new)
+    package.json       ← workspace package for tooling (lint, test)
+    jec-config.json    ← JEC binary configuration (actionMappings → receiver.py)
+    receiver.py        ← Python action script invoked by JEC
+    README.md          ← setup instructions for customers
 
-- `jira:globalPage`
-- `webtrigger`
-- `scheduledTrigger`
-- `function`
+packages/
+  forge-ahead/         ← shared Forge library (unchanged)
+```
 
-Expected functions:
+## JEC channel API (confirmed from generated types)
 
-- UI resolver function
-- callback web trigger handler
-- scheduled cleanup handler
+All endpoints are under `https://api.atlassian.com/jsm/ops/api/{cloudId}/v1/jec/`.
 
-Expected scopes:
+### Channel provisioning
+
+```
+POST /v1/jec/channels
+Body: CreateJecChannelDto { name, ownerId, ownerDomain }
+Response: JecChannelWithApiKey { id, name, ownerId, ownerDomain, authorAccountId, apiKey }
+```
+
+The `apiKey` in the response is the value the customer puts in their `jec-config.json`. Store `id` and `apiKey` in Forge KVS after provisioning.
+
+### Task dispatch
+
+```
+POST /v1/jec/action?channelId={channelId}
+Body: SendJecActionDto {
+  action: string,         // maps to actionMappings key in jec-config.json
+  actionType: 'custom',
+  details?: Record<string, unknown>  // free-form data map — becomes --payload in the script
+}
+Response: 202 Accepted (no body)
+```
+
+The `details` map is what JEC serialises and passes to the receiver script as `--payload`. This is where the Forge app puts `taskId`, task type, and any other receiver-relevant data.
+
+> **Note:** The generated type says `Record<string, never>` for `details` — this is a codegen artefact. Cast as `Record<string, unknown>` at the call site.
+
+### Required scopes
 
 ```yaml
 permissions:
@@ -88,294 +147,164 @@ permissions:
     - delete:ops-config:jira-service-management
 ```
 
-Scope notes:
+## Receiver script contract (`apps/receiver/receiver.py`)
 
-- `storage:app` is required for `@forge/kvs`.
-- JEC/JSM Ops scopes must be validated against the exact channel provisioning and dispatch APIs used.
-- JEC APIs appear experimental, so raw API usage must stay isolated in the JEC adapter.
+The Python script is invoked by JEC as an OS process with the following CLI flags:
 
-## Proposed source structure
+| Flag | Required | Description |
+|---|---|---|
+| `--payload` | Yes | JSON string — deserialised `SendJecActionDto.details` |
+| `--apiKey` | Yes | JEC API key (handle with care) |
+| `--jsmUrl` | Yes | JSM base URL |
+| `--logLevel` | Yes | Log level string |
+| `--jecNamedPipe` | No | Path to named pipe for writing result back to JEC |
 
-```text
-src/
-  index.js
-  frontend/
-    index.jsx
-  resolvers/
-    index.js
-  webtriggers/
-    callback.js
-  scheduled/
-    cleanup.js
-  domain/
-    task-state.js
-    callback-events.js
-    signatures.js
-  infrastructure/
-    storage/
-      task-store.js
-      nonce-store.js
-      channel-store.js
-    jec/
-      jec-channel-adapter.js
-      simulator-adapter.js
-  shared/
-    constants.js
-    errors.js
+The script:
+1. Parses CLI flags with `argparse`
+2. Deserialises `--payload` as JSON
+3. Validates required fields (e.g. `taskId`, `taskType`)
+4. Appends a structured event to a local log file (stand-in for Kafka)
+5. If `--jecNamedPipe` is present, writes `{"result": "success", "taskId": "..."}` to the pipe
+
+The log file is the point where a real customer implementation would call `publish_to_kafka()` or equivalent. The sample makes this explicit with a comment.
+
+### JEC config (`apps/receiver/jec-config.json`)
+
+```json
+{
+  "apiKey": "<replace-with-api-key-from-channel-provisioning>",
+  "baseUrl": "https://api.atlassian.com",
+  "logLevel": "INFO",
+  "actionMappings": {
+    "dispatchTask": {
+      "sourceType": "local",
+      "filepath": "/path/to/apps/receiver/receiver.py",
+      "env": [],
+      "stdout": "/var/log/jec/receiver.out.txt",
+      "stderr": "/var/log/jec/receiver.err.txt"
+    }
+  },
+  "pollerConf": {
+    "pollingWaitIntervalInMillis": 100,
+    "visibilityTimeoutInSeconds": 30,
+    "maxNumberOfMessages": 10
+  },
+  "poolConf": {
+    "maxNumberOfWorker": 4,
+    "minNumberOfWorker": 2,
+    "queueSize": 0,
+    "keepAliveTimeInMillis": 6000,
+    "monitoringPeriodInMillis": 15000
+  }
+}
 ```
 
-## Domain model
+The action name `dispatchTask` must match what the Forge app sends as `SendJecActionDto.action`.
 
-Core concepts:
+## Task state model (`apps/dispatcher/src/domain/task-state.ts`)
 
-- `ReportTask`: asynchronous report request created by Forge.
-- `TaskEvent`: immutable event in the task history.
-- `TaskProjection`: current state derived from events.
-- `JecChannel`: channel metadata used to dispatch work through JEC.
-- `CallbackNonce`: replay-protection record.
-- `CallbackSignature`: parsed and verified callback authentication data.
+Simplified to dispatch-only:
 
-Task states:
-
-- `pending`
-- `running`
-- `complete`
-- `failed`
-- `expired`
-
-Event types:
-
-- `TASK_CREATED`
-- `JEC_CHANNEL_PROVISIONED`
-- `JEC_DISPATCH_REQUESTED`
-- `CALLBACK_ACCEPTED`
-- `TASK_RUNNING_REPORTED`
-- `TASK_COMPLETED_REPORTED`
-- `TASK_FAILED_REPORTED`
-- `TASK_EXPIRED`
-
-## UI plan
-
-Use UI Kit components from `@forge/react` only. Do not use standard HTML components or third-party React components.
-
-The Jira global page should include:
-
-1. Setup status
-   - Show whether a JEC channel is provisioned.
-   - Provide a “Provision channel” action.
-   - Show whether fallback/simulator mode is available.
-
-2. Create report task
-   - Simple form for report name and optional context.
-   - Let the user choose real JEC or fallback/simulator mode.
-
-3. Task list
-   - Use `DynamicTable`.
-   - Include task ID, status, created time, last event, and mode.
-   - Use `Lozenge` for task status.
-
-4. Task detail
-   - Show event log entries.
-   - Show safe callback verification metadata.
-   - Never display raw secrets.
-
-The UI should not render the app title itself, because the Forge product chrome renders the module title.
-
-## Resolver actions
-
-Resolver functions:
-
-- `getSetupStatus`
-- `provisionJecChannel`
-- `createReportTask`
-- `listReportTasks`
-- `getReportTask`
-- `runFallbackSimulation`
-- `rotateCallbackKey` — optional if key rotation hooks are included in the first pass
-
-Resolver responsibilities:
-
-- Validate input payloads.
-- Enforce admin authorization for setup/provisioning actions.
-- Coordinate domain services.
-- Avoid embedding raw JEC API details.
-
-## JEC adapter boundary
-
-Keep raw JEC API calls behind an adapter interface.
-
-Conceptual interface:
-
-```js
-provisionChannel()
-dispatchReportTask(task)
-getChannelStatus()
-deleteChannel()
+```typescript
+type TaskState = 'pending' | 'dispatched' | 'dispatch_failed'
 ```
 
-The rest of the app should not know the raw JEC endpoint paths or response shapes.
+- `pending` — created, not yet dispatched
+- `dispatched` — JSM Ops API returned 202
+- `dispatch_failed` — JSM Ops API returned an error
 
-A simulator adapter should implement the same conceptual contract for local development and CI.
+The scheduled cleanup expires tasks stuck in `pending` beyond a TTL (e.g. tasks created before the dispatcher was configured).
 
-## Web trigger callback flow
+## Fallback/simulator path
 
-The web trigger handler should:
+The simulator adapter short-circuits the real JSM Ops API call and directly records a `dispatched` state. It does **not** simulate a completion callback (there is none in the dispatch-only model).
 
-1. Parse the request.
-2. Extract key ID/channel ID, task ID, timestamp, nonce or event ID, and signature.
-3. Rebuild the canonical request string.
-4. Verify the HMAC signature.
-5. Enforce a short timestamp validity window.
-6. Reject reused nonce/event IDs.
-7. Load the task.
-8. Confirm task and channel binding.
-9. Append a callback event.
-10. Update the task projection.
-11. Return a stable JSON response.
+- Production path: `jec-channel-adapter.ts` calls the real JSM Ops endpoints
+- Dev/CI path: `simulator-adapter.ts` skips the HTTP call, returns a mock 202
 
-The web trigger URL itself is not authentication. Every request must be treated as untrusted until the callback verifier accepts it.
+Both adapters implement the same `JecChannelAdapter` interface.
 
-## Callback signature design
+## Manifest changes
 
-Use HMAC over a canonical string that includes at least:
+Remove `webtrigger` module. Keep:
 
-- HTTP method
-- request path or callback route identity
-- body hash
-- timestamp
-- nonce/event ID
-- task ID
-- channel ID or key ID
-- installation or tenant identifier where available
-
-Recommended headers:
-
-```http
-Authorization: Signature keyId="...", algorithm="hmac-sha256", signature="..."
-X-Forge-Task-Id: ...
-X-Request-Timestamp: ...
-X-Request-Nonce: ...
-X-JEC-Channel-Id: ...
+```yaml
+modules:
+  jira:globalPage: ...
+  trigger:scheduled: ...   ← cleanup
+  function: ...            ← resolver + cleanup handler
 ```
 
-## Storage plan
+## Removed from original plan
 
-Use `@forge/kvs`.
-
-Stores:
-
-- Channel metadata store
-- Task projection store
-- Task event log store
-- Nonce/event replay store
-- Optional setup/config store
-
-Sensitive per-install values that must be stored in KVS should use encrypted KVS methods where possible. Deployment-level root secret material should use Forge encrypted variables.
-
-## Cleanup plan
-
-Add a scheduled trigger that:
-
-- Expires tasks older than a configured threshold.
-- Appends `TASK_EXPIRED` events where appropriate.
-- Prunes old nonce/event replay records.
-- Optionally prunes old event logs according to retention policy.
-
-## Fallback/simulator plan
-
-The fallback path should not pretend to be real JEC. It should be explicitly labeled as simulator mode.
-
-Recommended approach:
-
-- Runtime simulator adapter for local/manual demo paths.
-- Tests call callback/domain handlers directly.
-- Optional manual helper can generate signed callback payloads for web trigger testing.
+| Removed | Reason |
+|---|---|
+| `webtrigger` module | Not part of JEC standard model |
+| `src/webtriggers/callback.ts` | No Forge web trigger callback |
+| `src/domain/callback-events.ts` | No callback events |
+| `src/domain/signatures.ts` | No HMAC verification needed |
+| `src/infrastructure/storage/nonce-store.ts` | No replay protection without callback |
+| `TaskState.complete / failed` | Forge never receives completion signal |
 
 ## Testing plan
 
 Add or update tests for:
 
-1. Manifest wiring
-   - `jira:globalPage` exists and points to resolver.
-   - `webtrigger` exists and points to callback handler.
-   - `scheduledTrigger` exists and points to cleanup handler.
-   - `storage:app` is declared when `@forge/kvs` is imported.
+1. **Manifest wiring**
+   - `jira:globalPage` exists and points to resolver
+   - `trigger:scheduled` exists and points to cleanup handler
+   - `storage:app` is declared when `@forge/kvs` is imported
+   - No `webtrigger` module present
 
-2. Callback authentication
-   - Accepts valid HMAC.
-   - Rejects invalid signature.
-   - Rejects stale timestamp.
-   - Rejects reused nonce/event ID.
-   - Rejects task/channel mismatch.
+2. **Task state transitions**
+   - `pending → dispatched` on 202 response
+   - `pending → dispatch_failed` on error response
+   - Terminal states are immutable
 
-3. Event projection
-   - Derives current state from event log.
-   - Treats terminal states as immutable.
-   - Handles retries and out-of-order events deterministically.
+3. **JEC adapter boundary**
+   - Resolver calls adapter interface, not raw endpoints
+   - Simulator adapter follows the same contract
+   - Channel adapter uses correct endpoints and scopes
 
-4. JEC adapter boundary
-   - Resolver calls adapter interface rather than raw endpoints directly.
-   - Fallback adapter follows the same contract.
+4. **UI invoke wiring**
+   - Frontend invokes only resolver names implemented and wired through manifest
 
-5. UI invoke wiring
-   - Frontend invokes only resolver names implemented by the resolver and wired through the manifest.
+5. **Receiver script (Python)**
+   - Parses all required CLI flags
+   - Deserialises payload JSON
+   - Validates required payload fields
+   - Appends structured event to log file
+   - Writes named pipe result when `--jecNamedPipe` provided
+   - Exits non-zero on validation failure
 
 ## Implementation order
 
-1. Convert manifest from JSM queue page to Jira global page.
-2. Add web trigger and scheduled trigger wiring.
-3. Add `@forge/kvs` dependency and `storage:app` scope.
-4. Build task event, state projection, and HMAC verifier domain modules.
-5. Build KVS-backed storage adapters.
-6. Build callback web trigger handler.
-7. Build resolver actions.
-8. Build JEC adapter and fallback simulator adapter.
-9. Build Jira global page UI.
-10. Add and update tests.
-11. Run package tests, lint, and `forge lint`.
+1. Rename `apps/jec-dispatcher/` → `apps/dispatcher/`
+2. Create `apps/receiver/` with `package.json`, `jec-config.json`, `receiver.py`, `README.md`
+3. Strip Forge app: remove webtrigger, callback handler, callback-events, signatures, nonce store
+4. Simplify `task-state.ts` to dispatch-only
+5. Fill in real JEC channel + action endpoints in `jec-channel-adapter.ts`
+6. Update manifest: remove `webtrigger`, keep `jira:globalPage` + `trigger:scheduled`
+7. Update resolver actions to match simplified state model
+8. Update simulator adapter (no longer simulates callback)
+9. Build Jira global page UI
+10. Add/update tests for all layers
+11. Run package tests, lint, and `forge lint`
 
-## Risks and open dependencies
+## Risks and remaining open questions
 
-### Exact JEC API contract
+### Named pipe result format
 
-Need to confirm the exact endpoints, request payloads, response payloads, and scopes for:
+The exact JSON schema JEC expects when a script writes to `--jecNamedPipe` is not formally documented. The sample will use `{"result": "success", "taskId": "..."}` and note this may need tuning.
 
-- Create channel
-- List/get channel
-- Delete channel
-- Send action or dispatch task into channel
+### `details` codegen artefact
+
+`SendJecActionDto.details` is typed as `Record<string, never>` in the generated types — this is a codegen error. The adapter must cast at the call site.
 
 ### Admin authorization
 
-Channel provisioning must be admin-only. Need to choose the authorization check:
+Channel provisioning should be admin-only. The sample will document this as a precondition but will not enforce a specific permission check in the exemplar.
 
-- Jira global admin permission
-- JSM admin/project permission
-- Documented sample assumption
+### JEC Git sourcing
 
-### Forge encrypted variables
-
-Need final variable names and setup instructions, for example:
-
-- `CALLBACK_HMAC_SECRET`
-- `CALLBACK_HMAC_KEY_ID`
-- `JEC_API_MODE`
-
-### Real JEC dispatch payload
-
-Need to align the task dispatch payload with real JEC semantics. Candidate payload:
-
-```json
-{
-  "taskId": "...",
-  "callbackUrl": "...",
-  "callbackKeyId": "...",
-  "requestedBy": "...",
-  "reportType": "...",
-  "createdAt": "..."
-}
-```
-
-## Recommended implementation posture
-
-Proceed with the full exemplar, but keep JEC behind a narrow adapter. The architecture should remain stable even if the experimental JEC API changes.
+The sample documents that JEC can source `receiver.py` and `jec-config.json` from Git. The `apps/receiver/` workspace in this repo can serve as the Git source for JEC, making it usable as a real reference deployment.

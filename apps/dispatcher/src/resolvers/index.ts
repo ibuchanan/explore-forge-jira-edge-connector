@@ -11,7 +11,6 @@ import {
 } from "../infrastructure/jec/jec-channel-adapter";
 import {
   createSimulatorChannel,
-  createSimulatorCompletionEvent,
   createSimulatorDispatchEvent,
 } from "../infrastructure/jec/simulator-adapter";
 import {
@@ -20,7 +19,6 @@ import {
 } from "../infrastructure/storage/channel-store";
 import {
   appendTaskEvent,
-  getTask,
   getTaskDetail,
   listTasks,
   saveNewTask,
@@ -35,7 +33,7 @@ interface ResolverRequest<TPayload = Record<string, unknown>> {
   };
 }
 
-interface CreateReportTaskPayload {
+interface CreateTaskPayload {
   name?: string;
   context?: string;
   mode?: TaskMode;
@@ -68,14 +66,16 @@ resolver.define("getSetupStatus", async () => {
 });
 
 resolver.define(
-  "provisionJecChannel",
+  "provisionChannel",
   async (request: ResolverRequest<{ mode?: TaskMode }>) => {
     try {
       const mode = request.payload?.mode || "simulator";
+      const cloudId = request.context?.cloudId || "";
       const now = nowIso();
+
       const setup =
         mode === "jec"
-          ? { ...(await provisionJecChannel(now)), mode }
+          ? { ...(await provisionJecChannel(cloudId, now)), mode }
           : createSimulatorChannel(now);
 
       return success({ setup: await saveChannelSetup(setup) });
@@ -86,17 +86,19 @@ resolver.define(
 );
 
 resolver.define(
-  "createReportTask",
-  async (request: ResolverRequest<CreateReportTaskPayload>) => {
+  "createTask",
+  async (request: ResolverRequest<CreateTaskPayload>) => {
     try {
-      const name = request.payload?.name?.trim() || "On-premise report";
+      const name = request.payload?.name?.trim() || "On-premise task";
       const mode = request.payload?.mode || "simulator";
+      const cloudId = request.context?.cloudId || "";
       const existingSetup = await getChannelSetup();
       const now = nowIso();
+
       const setup =
         existingSetup ||
         (mode === "jec"
-          ? { ...(await provisionJecChannel(now)), mode }
+          ? { ...(await provisionJecChannel(cloudId, now)), mode }
           : createSimulatorChannel(now));
 
       if (!existingSetup) {
@@ -125,8 +127,9 @@ resolver.define(
 
       const dispatchEvent =
         mode === "jec"
-          ? await dispatchReportTask(task, nowIso())
+          ? await dispatchReportTask(task, cloudId, nowIso())
           : createSimulatorDispatchEvent(task, nowIso());
+
       const projection = await appendTaskEvent(task.id, dispatchEvent);
 
       return success({ task: projection });
@@ -136,7 +139,7 @@ resolver.define(
   },
 );
 
-resolver.define("listReportTasks", async () => {
+resolver.define("listTasks", async () => {
   try {
     return success({ tasks: await listTasks() });
   } catch (error) {
@@ -144,48 +147,18 @@ resolver.define("listReportTasks", async () => {
   }
 });
 
-resolver.define(
-  "getReportTask",
-  async (request: ResolverRequest<TaskIdPayload>) => {
-    try {
-      const taskId = request.payload?.taskId;
+resolver.define("getTask", async (request: ResolverRequest<TaskIdPayload>) => {
+  try {
+    const taskId = request.payload?.taskId;
 
-      if (!taskId) {
-        throw new Error("taskId is required.");
-      }
-
-      return success({ detail: await getTaskDetail(taskId) });
-    } catch (error) {
-      return failure(error);
+    if (!taskId) {
+      throw new Error("taskId is required.");
     }
-  },
-);
 
-resolver.define(
-  "runFallbackSimulation",
-  async (request: ResolverRequest<TaskIdPayload>) => {
-    try {
-      const taskId = request.payload?.taskId;
-
-      if (!taskId) {
-        throw new Error("taskId is required.");
-      }
-
-      const task = await getTask(taskId);
-
-      if (!task) {
-        throw new Error(`Task ${taskId} was not found.`);
-      }
-
-      const projection = await appendTaskEvent(
-        taskId,
-        createSimulatorCompletionEvent(task, nowIso()),
-      );
-      return success({ task: projection });
-    } catch (error) {
-      return failure(error);
-    }
-  },
-);
+    return success({ detail: await getTaskDetail(taskId) });
+  } catch (error) {
+    return failure(error);
+  }
+});
 
 export const handler = resolver.getDefinitions();

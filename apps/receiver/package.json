@@ -1,0 +1,18 @@
+{
+  "name": "explore-forge-jira-edge-connector-receiver",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "On-premise JEC receiver assets — Python script and JEC configuration",
+  "scripts": {
+    "test": "uv run --frozen pytest receiver_test.py -v",
+    "lint": "uv run --frozen ruff check .",
+    "lint:check": "uv run --frozen ruff check .",
+    "lint:fix": "uv run --frozen ruff check --fix .",
+    "format": "uv run --frozen ruff format .",
+    "format:check": "uv run --frozen ruff format --check .",
+    "typecheck": "uv run --frozen ty check .",
+    "build": "echo 'No build step for Python receiver'",
+    "check": "uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen ty check ."
+  }
+}

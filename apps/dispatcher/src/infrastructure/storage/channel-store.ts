@@ -3,9 +3,9 @@ import { STORE_KEYS } from "../../shared/constants";
 
 export interface ChannelSetup {
   channelId: string;
+  apiKey: string;
   mode: "jec" | "simulator";
   provisionedAt: string;
-  dispatchUrl?: string;
   note: string;
 }
 

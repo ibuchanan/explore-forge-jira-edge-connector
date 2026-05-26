@@ -36,16 +36,13 @@ describe("JEC sample app manifest", () => {
     );
   });
 
-  it("should wire callback and cleanup functions through platform modules", () => {
+  it("should have no webtrigger module", () => {
     const manifest = loadManifest();
+    expect(manifest.modules.webtrigger || []).toEqual([]);
+  });
 
-    expect(manifest.modules.webtrigger || []).toEqual([
-      expect.objectContaining({
-        key: "jec-callback",
-        function: "callback",
-        urlFormat: "v2",
-      }),
-    ]);
+  it("should wire cleanup function through scheduledTrigger", () => {
+    const manifest = loadManifest();
 
     expect(manifest.modules.scheduledTrigger || []).toEqual([
       expect.objectContaining({

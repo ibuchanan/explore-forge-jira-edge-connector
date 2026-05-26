@@ -1,214 +1,188 @@
-# JEC receiver script open questions
+# JEC receiver script: findings and resolved questions
 
-## Purpose
+## Status
 
-Capture the current understanding and unresolved questions for a Jira Edge Connector (JEC) receiver script. This is intentionally not a final design. It records the direction explored so far so that the JEC runtime and configuration details can be confirmed before the sample app architecture is updated.
+All major questions are now resolved. This document captures the confirmed findings. See `sample-app-architecture-exemplar-plan.md` for the implementation plan.
 
-## Current correction to the earlier architecture
+---
 
-The earlier sample-app architecture assumed an on-premise service would send signed HTTPS callbacks to a Forge web trigger. That is probably not the desired model for this spec.
+## What we know about JEC
 
-The direction to explore instead is:
+### JEC is a Go binary, not a TypeScript runtime
 
-```text
-JEC event/channel -> JEC JSON configuration -> TypeScript receiver script -> local/on-premise handling
+JEC (`atlassian/jec`) is a standalone Go binary that runs on-premises or in the customer's cloud. It executes scripts as OS processes. The documented languages are Groovy, Python, Go, PowerShell, `.sh` shell scripts, and batch files. TypeScript is not a natively supported JEC script language.
+
+**Decision:** The receiver script is Python (stdlib-only). No shell wrapper, no build step, no runtime dependency beyond Python 3.
+
+### JEC is triggered via the JSM Ops REST API (not Jira Automation)
+
+This Forge app triggers JEC via the JSM Ops REST API — specifically `POST /v1/jec/action`. This is distinct from the "Run script using Jira Edge Connector" Jira Automation action. The Forge resolver calls JSM Ops directly.
+
+### JEC config format (confirmed)
+
+```json
+{
+  "apiKey": "<from JecChannelWithApiKey.apiKey>",
+  "baseUrl": "https://api.atlassian.com",
+  "logLevel": "INFO",
+  "actionMappings": {
+    "dispatchTask": {
+      "sourceType": "local",
+      "filepath": "/path/to/receiver.py",
+      "env": [],
+      "stdout": "/var/log/jec/out.txt",
+      "stderr": "/var/log/jec/err.txt"
+    }
+  },
+  "pollerConf": { ... },
+  "poolConf": { ... }
+}
 ```
 
-In this model, the TypeScript script is run by JEC. The Forge app does not necessarily need a web trigger callback endpoint.
+The `actionMappings` key (e.g. `dispatchTask`) must match `SendJecActionDto.action` sent by the Forge app.
 
-## Working terminology
+### JEC script invocation contract (confirmed)
 
-### JEC configuration file
+JEC invokes scripts as OS-level processes with these CLI flags:
 
-A JSON configuration file consumed by JEC. It should define enough information for JEC to know which TypeScript script to run, which event or channel the script handles, and what runtime configuration is available to the script.
+| Flag | Required | Description |
+|---|---|---|
+| `--payload` | Yes | JSON string — the `details` map from `SendJecActionDto` |
+| `--apiKey` | Yes | JEC API key in plaintext |
+| `--jsmUrl` | Yes | `https://api.atlassian.com` |
+| `--logLevel` | Yes | Log level string |
+| `--jecNamedPipe` | No | Path to named pipe for writing result back to JEC |
 
-Open questions:
-
-- What is the exact JSON schema?
-- How does the configuration reference the TypeScript script?
-- Does the configuration define channels, event types, permissions, environment variables, secrets, or runtime options?
-- Is the configuration installed or registered through Jira/JSM APIs, local JEC tooling, or both?
-- Does the configuration support multiple handlers, or should the sample use one configuration per receiver script?
-
-### JEC receiver script
-
-A thin TypeScript script executed by JEC when a matching event is delivered.
-
-Recommended role for the receiver script:
-
-1. Receive the JEC-delivered event.
-2. Validate the event shape.
-3. Acknowledge or fail quickly according to JEC's execution contract.
-4. Perform local work or delegate local work to another on-premise service/queue.
-5. Avoid coupling the JEC event contract to one specific report implementation.
-
-Open questions:
-
-- What function shape does the script export?
-- Is the script invoked once per event?
-- Does JEC pass the event payload as a function argument, stdin, environment variable, file, or another mechanism?
-- Can the script perform asynchronous work after acknowledging the event?
-- How does the script signal success, failure, retryable failure, or permanent failure?
-- What are the timeout, memory, filesystem, network, and dependency constraints?
-- Does JEC compile TypeScript, run precompiled JavaScript, or require a bundling step?
-- How are npm dependencies provided to the script?
-- Where should the script log operational diagnostics?
-
-### JEC event payload
-
-The JSON input passed by JEC to the receiver script.
-
-Likely fields to confirm:
-
-- event ID or execution ID
-- task ID or correlation ID
-- channel ID or source ID
-- event type or action name
-- Jira cloud/site context
-- Jira project, issue, alert, or service context, if applicable
-- user or actor context, if applicable
-- request parameters for the local/on-premise work
-- timestamps
-- retry attempt metadata
-
-Open questions:
-
-- What fields does JEC actually provide?
-- Which fields are stable and safe for the receiver script to depend on?
-- Does the payload include a correlation ID created by Forge, Jira, or JEC?
-- Does the payload include enough tenant/site context to bind local work to the correct customer environment?
-- Does the payload include authentication/provenance metadata, or does JEC authenticate before invoking the script?
-- Should the receiver script validate signatures, or is invocation by JEC sufficient trust?
-
-### Local task handling
-
-The on-premise work performed after the receiver script accepts the event. The receiver may perform the work directly or hand it off to a local worker, queue, service, or script.
-
-Open questions:
-
-- Should the sample perform a tiny local action directly, or demonstrate delegation to a local worker?
-- If work is delegated, what is the local interface: HTTP, queue, shell command, file drop, or library call?
-- What idempotency key should local handling use?
-- How should duplicate JEC deliveries be detected?
-- How should retry behavior interact with local task state?
-- Where should local results be stored?
-
-## Forge app implications
-
-The current sample app contains a Forge web trigger callback implementation. If the receiver-script architecture is confirmed, that callback path may be unnecessary.
-
-Current callback-oriented files and wiring to revisit:
-
-- `apps/jec-dispatcher/manifest.yml` currently declares `webtrigger: jec-callback`.
-- `apps/jec-dispatcher/src/index.ts` currently exports `callback`.
-- `apps/jec-dispatcher/src/webtriggers/callback.ts` implements signed callback acceptance.
-- `apps/jec-dispatcher/src/domain/callback-events.ts` models callback payloads.
-- Some tests may assert callback/webtrigger behavior.
-
-Open questions:
-
-- Should the web trigger be removed entirely from the sample app?
-- Should callback handling be preserved only as an alternative architecture note?
-- Should the Forge task model be simplified if Forge no longer receives completion callbacks?
-- Is Forge still responsible for initiating a JEC event, or is the sample only about receiving Jira-originated JEC events?
-- Should the Forge UI display task status, or only configuration/dispatch state?
-
-## Status and result reporting options
-
-Without a Forge web trigger callback, the return path for completion status is unresolved.
-
-### Option A: dispatch-only Forge app
-
-Forge records only that work was requested or dispatched. Completion is owned by JEC/local systems.
-
-Possible Forge-visible states:
-
-- `pending`
-- `dispatched`
-- `dispatch_failed`
-
-Open questions:
-
-- Is this enough for the sample's purpose?
-- Should the UI explicitly say that completion is visible only in local/JEC logs?
-- Does this make the sample too incomplete as an end-to-end workflow?
-
-### Option B: receiver writes status to Jira/JSM product state
-
-The receiver updates a Jira/JSM resource that Forge can later read through normal product APIs.
-
-Possible targets to investigate:
-
-- issue comment/update
-- JSM Ops alert or event
-- Assets object
-- JEC-associated channel/execution resource
-- another Jira/JSM resource appropriate to the use case
-
-Open questions:
-
-- Which Jira/JSM resource should own status?
-- Does the JEC receiver script have credentials or context to write to that resource?
-- Should Forge poll that resource, or should users view status directly in Jira/JSM?
-- What permissions/scopes would the Forge app need if it reads the status later?
-
-### Option C: native JEC execution status
-
-JEC may provide a native execution status/result model that Forge or Jira can query.
-
-Open questions:
-
-- Does JEC expose execution result/status?
-- Is the status durable?
-- Can Forge query it through supported APIs?
-- Can the TypeScript receiver script attach structured result data to the JEC execution?
-- How are failed and retried executions represented?
-
-## Security and trust questions
-
-The callback-based model used HMAC signatures, timestamp checks, nonce checks, and task/channel binding. The receiver-script model has a different trust boundary.
-
-Open questions:
-
-- What does JEC guarantee before invoking the script?
-- Does the script need to authenticate the event payload?
-- How should the script validate tenant/site/channel binding?
-- How are secrets provided to the script?
-- Can the script call local services securely?
-- Does the script need to protect against replayed or duplicated events?
-- What audit logs are available for script execution?
-
-## Sample structure to consider
-
-Potential files if this direction is confirmed:
-
-```text
-apps/jec-dispatcher/
-  jec/
-    jec-config.json
-    receiver.ts
-    README-or-inline-comments TBD
+Example Python argparse pattern:
+```python
+parser = argparse.ArgumentParser()
+parser.add_argument('--payload', required=True)
+parser.add_argument('--apiKey', required=True)
+parser.add_argument('--jsmUrl', required=True)
+parser.add_argument('--logLevel', required=True)
+parser.add_argument('--jecNamedPipe', required=False)
+args = vars(parser.parse_args())
+payload = json.loads(args['payload'])
 ```
 
-Open questions:
+### The `--jecNamedPipe` callback mechanism (confirmed)
 
-- Should the JEC assets live inside `apps/jec-dispatcher/jec/`, another app-level directory, or a separate package?
-- Should the receiver script import shared domain types from the Forge app, or should it be self-contained?
-- If the receiver script runs outside Forge, can it safely import workspace packages?
-- Should the sample include tests for the receiver script independent of Forge?
+JEC creates a named pipe at the given path. If the script writes a JSON result to this pipe before exiting, JEC relays it back to the triggering flow. On Enterprise plans, the Jira Automation flow can wait up to 15 minutes for this response. This is the native JEC result mechanism — not a Forge web trigger.
 
-## Information needed before finalizing the spec
+**Decision:** The receiver script writes `{"result": "success", "taskId": "..."}` to the named pipe if present. The exact schema JEC expects is not formally documented — this may need tuning against a live JEC instance.
 
-Before making implementation decisions, confirm:
+### Security model (confirmed)
 
-1. Exact JEC JSON configuration schema.
-2. Exact TypeScript script invocation contract.
-3. Exact event payload shape.
-4. Runtime limits and dependency packaging model.
-5. Status/result reporting mechanism.
-6. Whether Forge initiates JEC events or only demonstrates related app setup.
-7. Whether the existing Forge web trigger callback path should be removed, retained as an alternative, or moved out of the main sample.
+JEC authenticates the event before invoking the script. Scripts do not need to independently verify the payload source. The trust boundary is at JEC invocation time. The `--apiKey` flag is available for any calls the script makes back to JSM.
 
-## Current recommendation to validate
+**Implication:** The Forge web trigger callback with HMAC verification is not part of the standard JEC model and has been removed from the Forge app.
 
-Treat the JEC receiver script as a thin adapter at the customer-network edge. It should validate the event and delegate local work rather than implement a full report-generation domain. Keep the JEC event contract small and stable, and avoid adding a Forge web trigger unless a confirmed return path requires it.
+### JEC can source scripts from Git (confirmed)
+
+JEC polls a Git repository every ~1 minute and can fetch both its config file and action scripts from Git. This means `apps/receiver/` in this repo can serve as the Git source for a real JEC deployment.
+
+---
+
+## JSM Ops API for JEC (confirmed from generated types)
+
+All types are in `packages/forge-ahead/src/apis/jira-service-desk-ops/types.ts`.
+
+### Channel provisioning
+
+```
+POST /api/{cloudId}/v1/jec/channels
+Body: CreateJecChannelDto {
+  name: string,
+  ownerId: string,
+  ownerDomain: boolean   // true if public owner domain (starts with 'public_')
+}
+Response: JecChannelWithApiKey {
+  id?: string,
+  name?: string,
+  ownerId?: string,
+  ownerDomain?: string,
+  authorAccountId?: string,
+  apiKey?: string        // ← put this in jec-config.json
+}
+```
+
+### Task dispatch
+
+```
+POST /api/{cloudId}/v1/jec/action?channelId={channelId}
+Body: SendJecActionDto {
+  action: string,              // must match actionMappings key in jec-config.json
+  actionType: string,          // use 'custom'
+  details?: Record<string, unknown>  // becomes --payload in the script
+}
+Response: 202 Accepted (no body)
+```
+
+> **Codegen note:** `details` is typed as `Record<string, never>` in the generated types — this is a codegen artefact. Cast as `Record<string, unknown>` at the call site.
+
+### Other channel operations
+
+```
+GET  /api/{cloudId}/v1/jec/channels              → JecChannelList
+GET  /api/{cloudId}/v1/jec/channels/{id}         → JecChannelWithApiKey
+DELETE /api/{cloudId}/v1/jec/channels/{id}       → 200 (no body)
+```
+
+### Required scopes
+
+```yaml
+- read:ops-config:jira-service-management
+- write:ops-config:jira-service-management
+- delete:ops-config:jira-service-management
+- storage:app
+```
+
+---
+
+## What the receiver script does
+
+The receiver script (`apps/receiver/receiver.py`) is the on-premise action handler. In a real customer deployment, this is where work gets done — e.g. publishing an event to Kafka. In the sample, it writes to a local log file as a clear, self-contained stand-in:
+
+```
+parse CLI flags
+  → validate payload fields (taskId, taskType, etc.)
+  → append structured event to local log file   ← customer replaces with Kafka publish
+  → write {"result": "success", "taskId": "..."} to --jecNamedPipe (if present)
+  → exit 0
+```
+
+The log file is explicitly documented in the script as a substitute for a message queue. A real deployment replaces the `append_to_log()` call with `publish_to_kafka()` or equivalent.
+
+---
+
+## Dependency management for the receiver script
+
+JEC invokes the script as a plain OS process against the system Python 3. There is no JEC-managed virtualenv or package manager. Options for dependencies:
+
+| Approach | Trade-offs |
+|---|---|
+| **stdlib-only** ← chosen | Zero setup, maximum portability, no pip/uv required |
+| uv PEP 723 inline script | Clean but requires `uv` installed on the customer machine |
+| Shell wrapper + virtualenv | Works but adds setup complexity for a sample |
+
+**Decision:** stdlib-only for the initial receiver script. All required functionality (argparse, json, os, datetime) is available in the Python 3 standard library. If third-party dependencies are needed in the future, a `uv`-backed shell wrapper is the recommended upgrade path.
+
+---
+
+## Remaining open questions
+
+### Named pipe result schema
+
+The exact JSON schema JEC expects when a script writes to `--jecNamedPipe` is not formally documented. The sample uses `{"result": "success", "taskId": "..."}` as a reasonable guess. This should be validated against a live JEC instance during integration testing.
+
+### `ownerDomain` semantics
+
+The `CreateJecChannelDto.ownerDomain` field is a boolean, but `JecChannel.ownerDomain` is a string (e.g. `"public_*"`). The exact behaviour when `ownerDomain: true` is not documented. Needs validation against a live JSM instance.
+
+### Admin authorization for channel provisioning
+
+The sample documents channel provisioning as an admin operation but does not enforce a specific Jira/JSM permission check. A production app should gate this behind a Jira admin check.
+
+### JSM Ops execution status
+
+It is not confirmed whether JSM Ops exposes a queryable per-execution result for dispatched JEC actions. If it does, this could enable Option B (receiver writes back to JSM) or Option C (Forge polls JSM for status) in a future iteration.
