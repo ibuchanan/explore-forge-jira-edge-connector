@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import api, { route } from "@forge/api";
+import type { components as OpsComponents } from "forge-ahead/apis/jira-service-desk-ops";
 import {
   TASK_EVENT_TYPES,
   TASK_STATUSES,
   type TaskEvent,
   type TaskProjection,
 } from "../../domain/task-state";
+
+type CreateJecChannelDto = OpsComponents["schemas"]["CreateJecChannelDto"];
+type JecChannelWithApiKey = OpsComponents["schemas"]["JecChannelWithApiKey"];
 
 // All JEC endpoints live under:
 //   https://api.atlassian.com/jsm/ops/api/{cloudId}/v1/jec/
@@ -32,14 +36,14 @@ export async function provisionJecChannel(
 ): Promise<ProvisionedJecChannel> {
   const response = await api
     .asApp()
-    .requestJira(route`/jsm/ops/api/${cloudId}/v1/jec/channels`, {
+    .requestJira(route`/jsm/ops/api/v1/jec/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: `forge-dispatcher-${Date.now()}`,
         ownerId: cloudId,
-        ownerDomain: "atlassian.net",
-      }),
+        ownerDomain: false,
+      } satisfies CreateJecChannelDto),
     });
 
   if (!response.ok) {
@@ -49,11 +53,7 @@ export async function provisionJecChannel(
     );
   }
 
-  // JecChannelWithApiKey: { id, name, ownerId, ownerDomain, authorAccountId, apiKey }
-  const channel = (await response.json()) as {
-    id: string;
-    apiKey: string;
-  };
+  const channel = (await response.json()) as JecChannelWithApiKey;
 
   return {
     channelId: channel.id,
@@ -88,25 +88,22 @@ export async function dispatchReportTask(
   const channelId = task.channelId;
   const response = await api
     .asApp()
-    .requestJira(
-      route`/jsm/ops/api/${cloudId}/v1/jec/action?channelId=${channelId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "dispatchTask",
-          actionType: "custom",
-          // Cast: generated type says Record<string, never> but this is a codegen artefact.
-          details: {
-            taskId: task.id,
-            taskType: task.name,
-            context: task.context,
-            channelId: task.channelId,
-            dispatchedAt: now,
-          } as Record<string, unknown>,
-        }),
-      },
-    );
+    .requestJira(route`/jsm/ops/api/v1/jec/action?channelId=${channelId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "dispatchTask",
+        actionType: "custom",
+        // Cast: generated type says Record<string, never> but this is a codegen artefact.
+        details: {
+          taskId: task.id,
+          taskType: task.name,
+          context: task.context,
+          channelId: task.channelId,
+          dispatchedAt: now,
+        } as Record<string, unknown>,
+      }),
+    });
 
   if (!response.ok) {
     const text = await response.text();

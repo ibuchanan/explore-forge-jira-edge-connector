@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import Resolver from "@forge/resolver";
+import type { JSONValue } from "forge-ahead";
+import { logContext } from "forge-ahead";
 import {
   createTaskProjection,
   TASK_EVENT_TYPES,
@@ -14,10 +16,10 @@ import {
   createSimulatorDispatchEvent,
 } from "../infrastructure/jec/simulator-adapter";
 import {
+  type ChannelSetup,
   deleteChannelSetup,
   getChannelSetup,
   saveChannelSetup,
-  type ChannelSetup,
 } from "../infrastructure/storage/channel-store";
 import {
   appendTaskEvent,
@@ -86,7 +88,8 @@ function getReceiverSetupDetail(setup: ChannelSetup | null): string {
   return "Copy the channel API key from the JEC Event Bridge page into jec-config.json and start the receiver.";
 }
 
-resolver.define("getSetupStatus", async () => {
+resolver.define("getSetupStatus", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "getSetupStatus");
   try {
     return success({ setup: await getChannelSetup() });
   } catch (error) {
@@ -94,7 +97,8 @@ resolver.define("getSetupStatus", async () => {
   }
 });
 
-resolver.define("getConnectionStatus", async () => {
+resolver.define("getConnectionStatus", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "getConnectionStatus");
   try {
     const setup = await getChannelSetup();
     return success({
@@ -106,7 +110,8 @@ resolver.define("getConnectionStatus", async () => {
   }
 });
 
-resolver.define("getConnectionHealth", async () => {
+resolver.define("getConnectionHealth", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "getConnectionHealth");
   try {
     const setup = await getChannelSetup();
     const isConfigured = !!setup;
@@ -135,7 +140,8 @@ resolver.define("getConnectionHealth", async () => {
   }
 });
 
-resolver.define("resetConnection", async () => {
+resolver.define("resetConnection", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "resetConnection");
   try {
     await deleteChannelSetup();
     return success({ isConfigured: false, setup: null });
@@ -213,7 +219,8 @@ resolver.define(
   },
 );
 
-resolver.define("listTasks", async () => {
+resolver.define("listTasks", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "listTasks");
   try {
     return success({ tasks: await listTasks() });
   } catch (error) {
@@ -222,6 +229,7 @@ resolver.define("listTasks", async () => {
 });
 
 resolver.define("getTask", async (request: ResolverRequest<TaskIdPayload>) => {
+  logContext(request.context as JSONValue, "getTask");
   try {
     const taskId = request.payload?.taskId;
 

@@ -66,6 +66,7 @@
         "default": "./dist/forge/remote/jwt.cjs"
       }
     },
+    "./apis/jira-service-desk-ops": "./src/apis/jira-service-desk-ops/types.ts",
     "./jira/platform-2": "./src/jira/platform-2/types.ts",
     "./jira/platform-3": "./src/jira/platform-3/types.ts",
     "./jira/servicedesk": "./src/jira/servicedesk/types.ts",
@@ -106,6 +107,9 @@
       ],
       "jira/software": [
         "./src/jira/software/types.ts"
+      ],
+      "apis/jira-service-desk-ops": [
+        "./src/apis/jira-service-desk-ops/types.ts"
       ]
     }
   },
