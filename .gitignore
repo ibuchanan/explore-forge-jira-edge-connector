@@ -41,6 +41,9 @@ coverage/
 package-lock.json
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+# JEC config (contains API key secret)
+apps/receiver/jec-config.json
+
 # Python
 .venv/
 __pycache__/

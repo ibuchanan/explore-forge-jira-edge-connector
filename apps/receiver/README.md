@@ -7,7 +7,8 @@ On-premise assets for the JEC Event Bridge Forge app. This directory contains th
 | File | Purpose |
 |---|---|
 | `receiver.py` | Python script invoked by JEC as an OS process |
-| `jec-config.json` | JEC binary configuration (action mappings, poller settings) |
+| `jec-config.example.json` | JEC binary configuration template (copy to `jec-config.json` and fill in secrets) |
+| `jec-config.json` | Your local JEC config with real API key — **not checked in** |
 
 ## How it works
 
@@ -72,7 +73,13 @@ JEC is distributed as OS-specific installation packages. Atlassian currently doc
 
 ### 2. Configure this receiver
 
-See Atlassian's [Configure Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/configure-jira-edge-connector/) guide for the full configuration reference. For this sample, edit `apps/receiver/jec-config.json`:
+See Atlassian's [Configure Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/configure-jira-edge-connector/) guide for the full configuration reference. For this sample, copy the example and fill in your secrets:
+
+```bash
+cp apps/receiver/jec-config.example.json apps/receiver/jec-config.json
+```
+
+Then edit `apps/receiver/jec-config.json`:
 
 ```json
 {
@@ -106,7 +113,7 @@ JEC reads its config from environment variables. For a local config file, set:
 
 ```bash
 export JEC_CONF_SOURCE_TYPE=local
-export JEC_CONF_LOCAL_FILEPATH="$(pwd)/apps/receiver/jec-config.json"
+export JEC_CONF_LOCAL_FILEPATH="$(pwd)/apps/receiver/jec-config.json"  # your local copy, not the example
 ```
 
 For service-based installs, add those environment variables to the service configuration. Atlassian's [Run Jira Edge Connector](https://support.atlassian.com/jira-service-management-cloud/docs/run-jira-edge-connector) guide includes service examples for Windows and Linux.
@@ -135,7 +142,7 @@ def append_to_log(payload: dict) -> None:
 
 ## Using this repo as a Git source for JEC
 
-JEC supports sourcing action scripts from Git. Point JEC at this repository and set `sourceType: git` in your `jec-config.json`. The `apps/receiver/` directory can serve as the Git source for a real reference deployment.
+JEC supports sourcing action scripts from Git. Point JEC at this repository and set `sourceType: git` in your `jec-config.json` (your local copy). The `apps/receiver/` directory can serve as the Git source for a real reference deployment.
 
 ## Local testing
 

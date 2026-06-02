@@ -1,0 +1,32 @@
+{
+  "apiKey": "<replace-with-api-key-from-channel-provisioning>",
+  "baseUrl": "https://api.atlassian.com",
+  "logLevel": "INFO",
+  "actionMappings": {
+    "dispatchTask": {
+      "sourceType": "local",
+      "filepath": "/path/to/apps/receiver/receiver.py",
+      "env": [],
+      "stdout": "/var/log/jec/receiver.out.txt",
+      "stderr": "/var/log/jec/receiver.err.txt",
+      "flags": {
+        "payload":  "{{.Payload}}",
+        "apiKey":   "{{.ApiKey}}",
+        "jsmUrl":   "{{.JsmUrl}}",
+        "logLevel": "{{.LogLevel}}"
+      }
+    }
+  },
+  "pollerConf": {
+    "pollingWaitIntervalInMillis": 5000,
+    "visibilityTimeoutInSeconds": 30,
+    "maxNumberOfMessages": 10
+  },
+  "poolConf": {
+    "maxNumberOfWorker": 4,
+    "minNumberOfWorker": 2,
+    "queueSize": 0,
+    "keepAliveTimeInMillis": 6000,
+    "monitoringPeriodInMillis": 15000
+  }
+}
