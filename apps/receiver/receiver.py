@@ -222,7 +222,8 @@ def write_named_pipe_result(pipe_path: str, task_id: str) -> None:
 
     if thread.is_alive():
         raise OSError(
-            f"Timed out after {NAMED_PIPE_TIMEOUT_SECONDS}s waiting for JEC to read named pipe: {pipe_path}"
+            f"Timed out after {NAMED_PIPE_TIMEOUT_SECONDS}s waiting for JEC to read "
+            f"named pipe: {pipe_path}"
         )
     if error:
         raise error[0]
@@ -242,9 +243,7 @@ def main() -> int:
         return 1
 
     if not isinstance(payload, dict):
-        logging.error(
-            "Expected --payload to be a JSON object, got %s", type(payload).__name__
-        )
+        logging.error("Expected --payload to be a JSON object, got %s", type(payload).__name__)
         return 1
 
     if not payload:

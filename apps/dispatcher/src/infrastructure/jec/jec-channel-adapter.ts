@@ -91,7 +91,7 @@ export async function provisionJecChannel(
  */
 export async function dispatchReportTask(
   task: TaskProjection,
-  cloudId: string,
+  _cloudId: string,
   now: string,
 ): Promise<TaskEvent> {
   // The channelId query param is required by the JEC action endpoint.

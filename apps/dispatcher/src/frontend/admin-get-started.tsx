@@ -57,7 +57,9 @@ const App = () => {
       }
       setHealth(response.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,9 @@ const App = () => {
 
       {!loading && allOk && (
         <SectionMessage appearance="success" title="Ready to dispatch">
-          <Text>The dispatcher channel exists and the usage page is unblocked.</Text>
+          <Text>
+            The dispatcher channel exists and the usage page is unblocked.
+          </Text>
         </SectionMessage>
       )}
 

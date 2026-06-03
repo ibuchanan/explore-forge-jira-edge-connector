@@ -107,7 +107,7 @@ const App = () => {
     } finally {
       setBusy(false);
     }
-  }, [mode]);
+  }, [mode, ownerDomain]);
 
   const reset = useCallback(async () => {
     setBusy(true);
@@ -123,7 +123,9 @@ const App = () => {
         return;
       }
       setStatus(response.data || { isConfigured: false, setup: null });
-      setMessage("Configuration cleared. Usage is blocked until a channel is provisioned again.");
+      setMessage(
+        "Configuration cleared. Usage is blocked until a channel is provisioned again.",
+      );
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -164,9 +166,15 @@ const App = () => {
 
           {status.setup && (
             <Stack space="space.050">
-              <Text>Current mode: {status.setup.mode === "jec" ? "JEC" : "Simulator"}</Text>
+              <Text>
+                Current mode:{" "}
+                {status.setup.mode === "jec" ? "JEC" : "Simulator"}
+              </Text>
               <Text>Channel ID: {status.setup.channelId}</Text>
-              <Text>Provisioned: {new Date(status.setup.provisionedAt).toLocaleString()}</Text>
+              <Text>
+                Provisioned:{" "}
+                {new Date(status.setup.provisionedAt).toLocaleString()}
+              </Text>
               <Text>{status.setup.note}</Text>
             </Stack>
           )}
@@ -190,7 +198,9 @@ const App = () => {
                 placeholder="public_<your-identifier>"
                 value={ownerDomain}
                 onChange={(event) =>
-                  setOwnerDomain((event.target as EventTarget & { value: string }).value)
+                  setOwnerDomain(
+                    (event.target as EventTarget & { value: string }).value,
+                  )
                 }
               />
               <Text>
@@ -202,8 +212,14 @@ const App = () => {
           )}
 
           <Inline space="space.100">
-            <LoadingButton appearance="primary" isLoading={busy} onClick={provision}>
-              {status.isConfigured ? "Re-provision channel" : "Provision channel"}
+            <LoadingButton
+              appearance="primary"
+              isLoading={busy}
+              onClick={provision}
+            >
+              {status.isConfigured
+                ? "Re-provision channel"
+                : "Provision channel"}
             </LoadingButton>
             <Button isDisabled={busy || !status.isConfigured} onClick={reset}>
               Reset configuration

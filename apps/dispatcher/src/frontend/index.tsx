@@ -251,7 +251,8 @@ const App = () => {
                 <SectionMessage appearance="information" title="Receiver setup">
                   <Text>
                     Copy this API key into your jec-config.json under the
-                    channel&apos;s apiKey field, then start the JEC binary: {setup.apiKey}
+                    channel&apos;s apiKey field, then start the JEC binary:{" "}
+                    {setup.apiKey}
                   </Text>
                 </SectionMessage>
               )}
@@ -271,9 +272,9 @@ const App = () => {
             <SectionMessage appearance="warning" title="Configuration required">
               <Stack space="space.100">
                 <Text>
-                  Dispatching is blocked until an admin provisions a simulator or
-                  JEC channel. This avoids creating tasks that cannot reach the
-                  on-premise receiver.
+                  Dispatching is blocked until an admin provisions a simulator
+                  or JEC channel. This avoids creating tasks that cannot reach
+                  the on-premise receiver.
                 </Text>
                 <Button
                   appearance="primary"

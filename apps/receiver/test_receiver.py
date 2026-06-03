@@ -15,6 +15,7 @@ Architecture note: the pure-core tests (group 6) require no mocks and no I/O.
 import json
 import logging
 import os
+import pathlib
 import tempfile
 import threading
 from datetime import UTC, datetime
@@ -24,16 +25,13 @@ import pytest
 
 import receiver
 from receiver import (
-    NAMED_PIPE_TIMEOUT_SECONDS,
     EventRecord,
     TaskEvent,
-    append_to_log,
     build_event_record,
     parse_payload,
     validate_payload,
     write_named_pipe_result,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,10 +55,14 @@ def run_main(payload_obj: object, *, named_pipe: str | None = None) -> int:
     payload_str = json.dumps(payload_obj)
     argv = [
         "receiver.py",
-        "--payload", payload_str,
-        "--apiKey", "test-key",
-        "--jsmUrl", "https://api.atlassian.com",
-        "--logLevel", "INFO",
+        "--payload",
+        payload_str,
+        "--apiKey",
+        "test-key",
+        "--jsmUrl",
+        "https://api.atlassian.com",
+        "--logLevel",
+        "INFO",
     ]
     if named_pipe:
         argv += ["--jecNamedPipe", named_pipe]
@@ -78,6 +80,7 @@ def run_main(payload_obj: object, *, named_pipe: str | None = None) -> int:
 # ---------------------------------------------------------------------------
 # 1. Non-dict payload guard
 # ---------------------------------------------------------------------------
+
 
 class TestNonDictPayloadGuard:
     def test_null_payload_returns_exit_1(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -112,16 +115,23 @@ class TestNonDictPayloadGuard:
         """A payload that is not valid JSON at all → JSONDecodeError branch → exit 1."""
         argv = [
             "receiver.py",
-            "--payload", "not-valid-json{{{",
-            "--apiKey", "test-key",
-            "--jsmUrl", "https://api.atlassian.com",
-            "--logLevel", "INFO",
+            "--payload",
+            "not-valid-json{{{",
+            "--apiKey",
+            "test-key",
+            "--jsmUrl",
+            "https://api.atlassian.com",
+            "--logLevel",
+            "INFO",
         ]
         with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
             log_path = f.name
         try:
-            with patch("sys.argv", argv), patch.object(receiver, "LOG_FILE", log_path), \
-                    caplog.at_level(logging.ERROR):
+            with (
+                patch("sys.argv", argv),
+                patch.object(receiver, "LOG_FILE", log_path),
+                caplog.at_level(logging.ERROR),
+            ):
                 result = receiver.main()
         finally:
             os.unlink(log_path)
@@ -132,6 +142,7 @@ class TestNonDictPayloadGuard:
 # ---------------------------------------------------------------------------
 # 2. validate_payload type checks
 # ---------------------------------------------------------------------------
+
 
 class TestValidatePayload:
     def test_valid_payload_passes(self) -> None:
@@ -190,8 +201,9 @@ class TestBlankPayload:
 # 3. Named-pipe write timeout
 # ---------------------------------------------------------------------------
 
+
 class TestNamedPipeTimeout:
-    def test_successful_write_via_real_fifo(self, tmp_path: "os.PathLike[str]") -> None:
+    def test_successful_write_via_real_fifo(self, tmp_path: pathlib.Path) -> None:
         """Write succeeds when a reader consumes the pipe concurrently."""
         pipe_path = str(tmp_path / "test.pipe")
         os.mkfifo(pipe_path)
@@ -214,7 +226,7 @@ class TestNamedPipeTimeout:
         assert data["taskId"] == "task-123"
 
     def test_timeout_raises_oserror_when_no_reader(
-        self, tmp_path: "os.PathLike[str]", monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """OSError is raised when no reader opens the pipe within the timeout."""
         pipe_path = str(tmp_path / "timeout.pipe")
@@ -224,7 +236,7 @@ class TestNamedPipeTimeout:
         with pytest.raises(OSError, match="Timed out"):
             write_named_pipe_result(pipe_path, "task-xyz")
 
-    def test_write_error_is_re_raised(self, tmp_path: "os.PathLike[str]") -> None:
+    def test_write_error_is_re_raised(self, tmp_path: pathlib.Path) -> None:
         """An OSError from the write itself (e.g. bad path) is re-raised."""
         with pytest.raises(OSError):
             write_named_pipe_result("/nonexistent/path/pipe", "task-abc")
@@ -234,8 +246,9 @@ class TestNamedPipeTimeout:
 # 4. Optional-field warnings
 # ---------------------------------------------------------------------------
 
+
 class TestOptionalFieldWarnings:
-    def _run_append(self, payload: dict, tmp_path: "os.PathLike[str]") -> None:
+    def _run_append(self, payload: dict, tmp_path: pathlib.Path) -> None:
         """
         Exercise the optional-field warning path via main(), which is where
         the shell now emits warnings based on TaskEvent.missing_optional_fields.
@@ -243,16 +256,20 @@ class TestOptionalFieldWarnings:
         log_file = str(tmp_path / "events.jsonl")
         argv = [
             "receiver.py",
-            "--payload", json.dumps(payload),
-            "--apiKey", "test-key",
-            "--jsmUrl", "https://api.atlassian.com",
-            "--logLevel", "INFO",
+            "--payload",
+            json.dumps(payload),
+            "--apiKey",
+            "test-key",
+            "--jsmUrl",
+            "https://api.atlassian.com",
+            "--logLevel",
+            "INFO",
         ]
         with patch("sys.argv", argv), patch.object(receiver, "LOG_FILE", log_file):
             receiver.main()
 
     def test_no_warnings_when_all_fields_present(
-        self, tmp_path: "os.PathLike[str]", caplog: pytest.LogCaptureFixture
+        self, tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.WARNING):
             self._run_append(VALID_PAYLOAD, tmp_path)
@@ -260,7 +277,7 @@ class TestOptionalFieldWarnings:
         assert not warning_records, f"Unexpected warnings: {[r.message for r in warning_records]}"
 
     def test_warns_when_context_missing(
-        self, tmp_path: "os.PathLike[str]", caplog: pytest.LogCaptureFixture
+        self, tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         payload = {**VALID_PAYLOAD}
         del payload["context"]
@@ -269,7 +286,7 @@ class TestOptionalFieldWarnings:
         assert "context" in caplog.text
 
     def test_warns_when_channel_id_missing(
-        self, tmp_path: "os.PathLike[str]", caplog: pytest.LogCaptureFixture
+        self, tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         payload = {**VALID_PAYLOAD}
         del payload["channelId"]
@@ -278,7 +295,7 @@ class TestOptionalFieldWarnings:
         assert "channelId" in caplog.text
 
     def test_warns_for_both_when_both_missing(
-        self, tmp_path: "os.PathLike[str]", caplog: pytest.LogCaptureFixture
+        self, tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         payload = {"taskId": "t1", "taskType": "report"}
         with caplog.at_level(logging.WARNING):
@@ -286,17 +303,19 @@ class TestOptionalFieldWarnings:
         assert "context" in caplog.text
         assert "channelId" in caplog.text
 
-    def test_log_file_contains_null_for_missing_fields(
-        self, tmp_path: "os.PathLike[str]"
-    ) -> None:
+    def test_log_file_contains_null_for_missing_fields(self, tmp_path: pathlib.Path) -> None:
         log_file = str(tmp_path / "events.jsonl")
         payload = {"taskId": "t1", "taskType": "report"}
         argv = [
             "receiver.py",
-            "--payload", json.dumps(payload),
-            "--apiKey", "test-key",
-            "--jsmUrl", "https://api.atlassian.com",
-            "--logLevel", "INFO",
+            "--payload",
+            json.dumps(payload),
+            "--apiKey",
+            "test-key",
+            "--jsmUrl",
+            "https://api.atlassian.com",
+            "--logLevel",
+            "INFO",
         ]
         with patch("sys.argv", argv), patch.object(receiver, "LOG_FILE", log_file):
             receiver.main()
@@ -310,16 +329,21 @@ class TestOptionalFieldWarnings:
 # 5. Happy-path: successful run writes a well-formed JSONL event
 # ---------------------------------------------------------------------------
 
+
 class TestSuccessfulRunWritesEvent:
-    def test_writes_valid_jsonl_event_with_correct_fields(self, tmp_path: "os.PathLike[str]") -> None:
+    def test_writes_valid_jsonl_event_with_correct_fields(self, tmp_path: pathlib.Path) -> None:
         """A complete successful run writes one JSONL line with expected fields."""
         log_file = str(tmp_path / "events.jsonl")
         argv = [
             "receiver.py",
-            "--payload", json.dumps(VALID_PAYLOAD),
-            "--apiKey", "test-key",
-            "--jsmUrl", "https://api.atlassian.com",
-            "--logLevel", "INFO",
+            "--payload",
+            json.dumps(VALID_PAYLOAD),
+            "--apiKey",
+            "test-key",
+            "--jsmUrl",
+            "https://api.atlassian.com",
+            "--logLevel",
+            "INFO",
         ]
         with patch("sys.argv", argv), patch.object(receiver, "LOG_FILE", log_file):
             result = receiver.main()
@@ -375,8 +399,8 @@ class TestParsePayload:
 
     def test_task_event_is_immutable(self) -> None:
         event = parse_payload(VALID_PAYLOAD)
-        with pytest.raises(Exception):
-            event.task_id = "mutated"  # type: ignore[misc]
+        with pytest.raises(AttributeError):
+            event.task_id = "mutated"  # type: ignore[misc, assignment]  # ty: ignore[invalid-assignment]
 
 
 class TestTaskEventMissingOptionalFields:
