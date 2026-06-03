@@ -10,6 +10,7 @@ import ForgeReconciler, {
   SectionMessage,
   Stack,
   Text,
+  Textfield,
 } from "@forge/react";
 import React, { useCallback, useEffect, useState } from "react";
 
@@ -50,6 +51,7 @@ const App = () => {
     setup: null,
   });
   const [mode, setMode] = useState<TaskMode>("simulator");
+  const [ownerDomain, setOwnerDomain] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -88,7 +90,7 @@ const App = () => {
     try {
       const response = await invoke<ResolverResponse<{ setup: ChannelSetup }>>(
         "provisionChannel",
-        { mode },
+        { mode, ...(mode === "jec" ? { ownerDomain } : {}) },
       );
       if (!response.ok || !response.data?.setup) {
         setError(response.error || "Provisioning failed.");
@@ -178,6 +180,26 @@ const App = () => {
               onChange={(event) => setMode(event.target.value as TaskMode)}
             />
           </Stack>
+
+          {mode === "jec" && (
+            <Stack space="space.100">
+              <Label labelFor="owner-domain">Owner domain</Label>
+              <Textfield
+                id="owner-domain"
+                name="owner-domain"
+                placeholder="public_<your-identifier>"
+                value={ownerDomain}
+                onChange={(event) =>
+                  setOwnerDomain((event.target as EventTarget & { value: string }).value)
+                }
+              />
+              <Text>
+                The public owner domain for the JEC channel (e.g.{" "}
+                <Text weight="bold">public_myorg</Text>). Must start with{" "}
+                <Text weight="bold">public_</Text>.
+              </Text>
+            </Stack>
+          )}
 
           <Inline space="space.100">
             <LoadingButton appearance="primary" isLoading={busy} onClick={provision}>

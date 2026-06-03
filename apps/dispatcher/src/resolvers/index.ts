@@ -152,15 +152,16 @@ resolver.define("resetConnection", async (request: ResolverRequest) => {
 
 resolver.define(
   "provisionChannel",
-  async (request: ResolverRequest<{ mode?: TaskMode }>) => {
+  async (request: ResolverRequest<{ mode?: TaskMode; ownerDomain?: string }>) => {
     try {
       const mode = request.payload?.mode || "simulator";
-      const cloudId = request.context?.cloudId || "";
+      const userIdentifier = request.context?.accountId || "";
+      const ownerDomain = request.payload?.ownerDomain || "";
       const now = nowIso();
 
       const setup =
         mode === "jec"
-          ? { ...(await provisionJecChannel(cloudId, now)), mode }
+          ? { ...(await provisionJecChannel(userIdentifier, ownerDomain, now)), mode }
           : createSimulatorChannel(now);
 
       return success({ setup: await saveChannelSetup(setup) });

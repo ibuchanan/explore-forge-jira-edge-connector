@@ -7929,8 +7929,12 @@ export interface components {
       name: string;
       /** @description Custom Owner ID. */
       ownerId: string;
-      /** @description Public Owner Domain starts with 'public_' */
-      ownerDomain: boolean;
+      /**
+       * @description Public Owner Domain — starts with 'public_' for public domains.
+       * NOTE: The generated type incorrectly used `boolean` here. The real API
+       * accepts a string value (e.g. "public_<identifier>"). See KNOWN_ISSUES.md.
+       */
+      ownerDomain: string;
     };
     JecChannel: {
       /** @description ID of the JEC channel. */

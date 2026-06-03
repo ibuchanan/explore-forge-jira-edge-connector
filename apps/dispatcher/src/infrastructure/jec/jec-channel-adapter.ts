@@ -12,8 +12,9 @@ type CreateJecChannelDto = OpsComponents["schemas"]["CreateJecChannelDto"];
 type JecChannelWithApiKey = OpsComponents["schemas"]["JecChannelWithApiKey"];
 
 // All JEC endpoints live under:
-//   https://api.atlassian.com/jsm/ops/api/{cloudId}/v1/jec/
-// The cloudId comes from the resolver context at runtime.
+//   https://api.atlassian.com/ex/jira/{cloudId}/jsm/ops/api/v1/jec/
+// requestJira() prepends https://api.atlassian.com/ex/jira/{cloudId}, so routes
+// start at /jsm/ops/api/v1/jec/...
 
 export interface ProvisionedJecChannel {
   channelId: string;
@@ -31,7 +32,8 @@ export interface ProvisionedJecChannel {
  * Required scope: write:ops-config:jira-service-management
  */
 export async function provisionJecChannel(
-  cloudId: string,
+  userIdentifier: string,
+  ownerDomain: string,
   now: string,
 ): Promise<ProvisionedJecChannel> {
   const response = await api
@@ -40,10 +42,13 @@ export async function provisionJecChannel(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: `forge-dispatcher-${Date.now()}`,
-        ownerId: cloudId,
-        ownerDomain: false,
-      } satisfies CreateJecChannelDto),
+        name: `forge-dispatcher-${now}`,
+        ownerId: userIdentifier,
+        ownerDomain,
+        // NOTE: CreateJecChannelDto types ownerDomain as boolean — this is a
+        // codegen error. The real API accepts a string (e.g. "public_<id>").
+        // See KNOWN_ISSUES.md for details.
+      } as CreateJecChannelDto),
     });
 
   if (!response.ok) {
@@ -54,6 +59,12 @@ export async function provisionJecChannel(
   }
 
   const channel = (await response.json()) as JecChannelWithApiKey;
+
+  if (!channel.id || !channel.apiKey) {
+    throw new Error(
+      `JEC channel provisioning returned incomplete data: ${JSON.stringify(channel)}`,
+    );
+  }
 
   return {
     channelId: channel.id,
