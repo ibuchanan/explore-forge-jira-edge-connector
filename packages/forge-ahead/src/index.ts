@@ -47,6 +47,8 @@ export type {
   CommonEvent,
   EventContext,
 } from "./forge/function";
+// Re-export scheduled function type
+export type { ScheduledFunction } from "./forge/triggers/scheduled";
 // Re-export logging utilities
 export { logContext, logResult, truncateEvents } from "./forge/logging";
 // Re-export Forge Remote JWT types and utilities

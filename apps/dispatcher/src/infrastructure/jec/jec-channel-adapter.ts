@@ -8,7 +8,6 @@ import {
   type TaskProjection,
 } from "../../domain/task-state";
 
-type CreateJecChannelDto = OpsComponents["schemas"]["CreateJecChannelDto"];
 type JecChannelWithApiKey = OpsComponents["schemas"]["JecChannelWithApiKey"];
 
 // All JEC endpoints live under:
@@ -45,10 +44,7 @@ export async function provisionJecChannel(
         name: `forge-dispatcher-${now}`,
         ownerId: userIdentifier,
         ownerDomain,
-        // NOTE: CreateJecChannelDto types ownerDomain as boolean — this is a
-        // codegen error. The real API accepts a string (e.g. "public_<id>").
-        // See KNOWN_ISSUES.md for details.
-      } as CreateJecChannelDto),
+      }),
     });
 
   if (!response.ok) {
