@@ -1,0 +1,2 @@
+default: true
+MD013: false  # line-length: URLs and code examples routinely exceed 80 chars
