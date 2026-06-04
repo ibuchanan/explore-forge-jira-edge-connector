@@ -1,115 +1,159 @@
 {
   "name": "forge-ahead",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "An experimental library of tools to make working with Atlassian Forge just a little better.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     },
     "./errors": {
-      "import": {
-        "types": "./dist/util/errors.d.mts",
-        "default": "./dist/util/errors.mjs"
-      },
-      "require": {
-        "types": "./dist/util/errors.d.cts",
-        "default": "./dist/util/errors.cjs"
-      }
+      "types": "./dist/util/errors.d.mts",
+      "import": "./dist/util/errors.mjs"
     },
     "./config": {
-      "import": {
-        "types": "./dist/config/index.d.mts",
-        "default": "./dist/config/index.mjs"
-      },
-      "require": {
-        "types": "./dist/config/index.d.cts",
-        "default": "./dist/config/index.cjs"
-      }
+      "types": "./dist/config/index.d.mts",
+      "import": "./dist/config/index.mjs"
     },
     "./rovo": {
-      "import": {
-        "types": "./dist/rovo/index.d.mts",
-        "default": "./dist/rovo/index.mjs"
-      },
-      "require": {
-        "types": "./dist/rovo/index.d.cts",
-        "default": "./dist/rovo/index.cjs"
-      }
+      "types": "./dist/rovo/index.d.mts",
+      "import": "./dist/rovo/index.mjs"
     },
     "./remote": {
-      "import": {
-        "types": "./dist/forge/remote/index.d.mts",
-        "default": "./dist/forge/remote/index.mjs"
-      },
-      "require": {
-        "types": "./dist/forge/remote/index.d.cts",
-        "default": "./dist/forge/remote/index.cjs"
-      }
+      "types": "./dist/forge/remote/index.d.mts",
+      "import": "./dist/forge/remote/index.mjs"
     },
     "./remote/jwt": {
-      "import": {
-        "types": "./dist/forge/remote/jwt.d.mts",
-        "default": "./dist/forge/remote/jwt.mjs"
-      },
-      "require": {
-        "types": "./dist/forge/remote/jwt.d.cts",
-        "default": "./dist/forge/remote/jwt.cjs"
-      }
+      "types": "./dist/forge/remote/jwt.d.mts",
+      "import": "./dist/forge/remote/jwt.mjs"
     },
-    "./apis/jira-service-desk-ops": "./src/apis/jira-service-desk-ops/types.ts",
-    "./jira/platform-2": "./src/jira/platform-2/types.ts",
-    "./jira/platform-3": "./src/jira/platform-3/types.ts",
-    "./jira/servicedesk": "./src/jira/servicedesk/types.ts",
-    "./jira/software": "./src/jira/software/types.ts",
+    "./apis/api-access": {
+      "types": "./dist/apis/api-access.d.mts",
+      "import": "./dist/apis/api-access.mjs"
+    },
+    "./apis/assets": {
+      "types": "./dist/apis/assets.d.mts",
+      "import": "./dist/apis/assets.mjs"
+    },
+    "./apis/bitbucket": {
+      "types": "./dist/apis/bitbucket.d.mts",
+      "import": "./dist/apis/bitbucket.mjs"
+    },
+    "./apis/confluence-1": {
+      "types": "./dist/apis/confluence-1.d.mts",
+      "import": "./dist/apis/confluence-1.mjs"
+    },
+    "./apis/confluence-2": {
+      "types": "./dist/apis/confluence-2.d.mts",
+      "import": "./dist/apis/confluence-2.mjs"
+    },
+    "./apis/jira-platform-2": {
+      "types": "./dist/apis/jira-platform-2.d.mts",
+      "import": "./dist/apis/jira-platform-2.mjs"
+    },
+    "./apis/jira-platform-3": {
+      "types": "./dist/apis/jira-platform-3.d.mts",
+      "import": "./dist/apis/jira-platform-3.mjs"
+    },
+    "./apis/jira-service-desk-ops": {
+      "types": "./dist/apis/jira-service-desk-ops.d.mts",
+      "import": "./dist/apis/jira-service-desk-ops.mjs"
+    },
+    "./apis/jira-servicedesk": {
+      "types": "./dist/apis/jira-servicedesk.d.mts",
+      "import": "./dist/apis/jira-servicedesk.mjs"
+    },
+    "./apis/jira-software": {
+      "types": "./dist/apis/jira-software.d.mts",
+      "import": "./dist/apis/jira-software.mjs"
+    },
+    "./jira/devops": {
+      "types": "./dist/jira/devops.d.mts",
+      "import": "./dist/jira/devops.mjs"
+    },
+    "./jira/platform-2": {
+      "types": "./dist/apis/jira-platform-2.d.mts",
+      "import": "./dist/apis/jira-platform-2.mjs"
+    },
+    "./jira/platform-3": {
+      "types": "./dist/apis/jira-platform-3.d.mts",
+      "import": "./dist/apis/jira-platform-3.mjs"
+    },
+    "./jira/servicedesk": {
+      "types": "./dist/apis/jira-servicedesk.d.mts",
+      "import": "./dist/apis/jira-servicedesk.mjs"
+    },
+    "./jira/software": {
+      "types": "./dist/apis/jira-software.d.mts",
+      "import": "./dist/apis/jira-software.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
   "typesVersions": {
     "*": {
       "errors": [
-        "./dist/util/errors.d.mts",
-        "./dist/util/errors.d.cts"
+        "./dist/util/errors.d.mts"
       ],
       "config": [
-        "./dist/config/index.d.mts",
-        "./dist/config/index.d.cts"
+        "./dist/config/index.d.mts"
       ],
       "rovo": [
-        "./dist/rovo/index.d.mts",
-        "./dist/rovo/index.d.cts"
+        "./dist/rovo/index.d.mts"
       ],
       "remote": [
-        "./dist/forge/remote/index.d.mts",
-        "./dist/forge/remote/index.d.cts"
+        "./dist/forge/remote/index.d.mts"
       ],
       "remote/jwt": [
-        "./dist/forge/remote/jwt.d.mts",
-        "./dist/forge/remote/jwt.d.cts"
+        "./dist/forge/remote/jwt.d.mts"
       ],
-      "jira/platform-2": [
-        "./src/jira/platform-2/types.ts"
+      "apis/api-access": [
+        "./dist/apis/api-access.d.mts"
       ],
-      "jira/platform-3": [
-        "./src/jira/platform-3/types.ts"
+      "apis/assets": [
+        "./dist/apis/assets.d.mts"
       ],
-      "jira/servicedesk": [
-        "./src/jira/servicedesk/types.ts"
+      "apis/bitbucket": [
+        "./dist/apis/bitbucket.d.mts"
       ],
-      "jira/software": [
-        "./src/jira/software/types.ts"
+      "apis/confluence-1": [
+        "./dist/apis/confluence-1.d.mts"
+      ],
+      "apis/confluence-2": [
+        "./dist/apis/confluence-2.d.mts"
+      ],
+      "apis/jira-platform-2": [
+        "./dist/apis/jira-platform-2.d.mts"
+      ],
+      "apis/jira-platform-3": [
+        "./dist/apis/jira-platform-3.d.mts"
       ],
       "apis/jira-service-desk-ops": [
-        "./src/apis/jira-service-desk-ops/types.ts"
+        "./dist/apis/jira-service-desk-ops.d.mts"
+      ],
+      "apis/jira-servicedesk": [
+        "./dist/apis/jira-servicedesk.d.mts"
+      ],
+      "apis/jira-software": [
+        "./dist/apis/jira-software.d.mts"
+      ],
+      "jira/devops": [
+        "./dist/jira/devops.d.mts"
+      ],
+      "jira/platform-2": [
+        "./dist/apis/jira-platform-2.d.mts"
+      ],
+      "jira/platform-3": [
+        "./dist/apis/jira-platform-3.d.mts"
+      ],
+      "jira/servicedesk": [
+        "./dist/apis/jira-servicedesk.d.mts"
+      ],
+      "jira/software": [
+        "./dist/apis/jira-software.d.mts"
       ]
     }
   },
@@ -144,21 +188,20 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@forge/api": "^7.2",
-    "@forge/kvs": "^1.6",
+    "@forge/api": "^7.2.1",
+    "@forge/kvs": "^1.6.4",
     "jmespath": "^0.16",
     "jose": "^6.2",
     "neverthrow": "^8.2",
+    "sort-package-json": "^4.0.0",
     "yaml": "^2.9"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.30",
+    "@redocly/cli": "^2.31.6",
     "@types/jmespath": "^0.15",
-    "@types/node": "^25.8",
-    "@vitest/coverage-v8": "^4.1",
+    "@vitest/coverage-v8": "^4.1.8",
     "archunit": "^2.3",
     "openapi-typescript": "^7.8",
-    "tsdown": "^0.22",
-    "vitest": "^4.1"
+    "tsdown": "^0.22.2"
   }
 }

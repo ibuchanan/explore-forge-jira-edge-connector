@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fc } from "../../src/config/schema";
 import {
   deleteConfigValue,
   getAllConfigValues,
@@ -8,6 +7,7 @@ import {
   getConfigValueWithSource,
   setConfigValues,
 } from "../../src/config/resolver";
+import { fc } from "../../src/config/schema";
 import type { ConfigStore } from "../../src/config/types";
 
 // ---------------------------------------------------------------------------

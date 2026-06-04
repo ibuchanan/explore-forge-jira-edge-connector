@@ -11,6 +11,9 @@
  *   } from "forge-ahead/rovo";
  */
 
+// JSON-RPC types and utilities (re-exported from agentConnector's dependency)
+export type { JsonRpcRequest, JsonRpcResponse } from "../util/jsonrpc";
+export { isJsonRpcError } from "../util/jsonrpc";
 // Rovo action types
 export type {
   RovoActionFunction,
@@ -18,7 +21,6 @@ export type {
   RovoEvent,
   RovoResponse,
 } from "./action";
-
 // Agent Connector A2A protocol types
 export type {
   AdvanceTaskRequest,
@@ -39,20 +41,15 @@ export type {
   TaskState,
   TaskStatusUpdateEvent,
 } from "./agentConnector";
-
 // Agent Connector A2A protocol utilities
 export {
   ACTIVE_TASK_STATES,
-  TASK_STATE_TRANSITIONS,
-  TERMINAL_TASK_STATES,
   formatAgentConnectorTaskResponse,
   getAllowedTransitions,
   isActiveState,
   isTerminalState,
   isValidAgentConnectorResponse,
   isValidTransition,
+  TASK_STATE_TRANSITIONS,
+  TERMINAL_TASK_STATES,
 } from "./agentConnector";
-
-// JSON-RPC types and utilities (re-exported from agentConnector's dependency)
-export type { JsonRpcRequest, JsonRpcResponse } from "../util/jsonrpc";
-export { isJsonRpcError } from "../util/jsonrpc";

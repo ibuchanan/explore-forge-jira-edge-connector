@@ -74,20 +74,6 @@ export interface Input {
 export type Actions = Array<Action>;
 
 /**
- * Product detail information for Rovo context
- *
- * Contains metadata about the Atlassian product resource that triggered the action.
- /**
- * @internal
- */
-interface RovoProductDetail {
-  /** URL of the product resource */
-  url: string;
-  /** Type of the resource (e.g., "issue", "page", "project") */
-  resourceType: string;
-}
-
-/**
  * Rovo action execution context
  *
  * Extends the base EventContext with additional properties that may be present

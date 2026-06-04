@@ -10,10 +10,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  type JsonRpcRequest,
   createErrorResponse,
   createSuccessResponse,
   isJsonRpcError,
+  type JsonRpcRequest,
   validateJsonRpcRequest,
 } from "../../src/util/jsonrpc";
 

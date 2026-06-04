@@ -16,11 +16,11 @@ import {
   fetchAtlassianJwks,
   getKeyIdFromToken,
   isJwtExpired,
+  type JwtPayload,
   parseJwt,
   validateAuthHeader,
   verifyAndParseJwt,
   verifyJwt,
-  type JwtPayload,
 } from "../../src/forge/remote";
 import {
   buildLocalJwks,
@@ -130,7 +130,7 @@ describe("forge/remote", () => {
       const keyId = getKeyIdFromToken(token);
 
       // JwtHeader requires kid, so this will be undefined when not present
-      expect(keyId as any).toBeUndefined();
+      expect(keyId as unknown).toBeUndefined();
     });
   });
 

@@ -42,7 +42,7 @@ describe("HttpRequest", () => {
 
     expect(req.method).toBe("POST");
     expect(req.headers["content-type"]).toBe("application/json");
-    expect(req.queryParameters["page"]).toBe("1");
+    expect(req.queryParameters.page).toBe("1");
     expect(req.body).toBe('{"hello":"world"}');
   });
 });

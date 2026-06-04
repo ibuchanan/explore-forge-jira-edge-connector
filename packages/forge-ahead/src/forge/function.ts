@@ -17,8 +17,8 @@ export interface CommonEvent {
 }
 
 export type ForgeFunctionResponse =
-  | Promise<{ [key: string]: any } | string | undefined>
-  | { [key: string]: any }
+  | Promise<Record<string, unknown> | string | undefined>
+  | Record<string, unknown>
   | string
   | undefined;
 

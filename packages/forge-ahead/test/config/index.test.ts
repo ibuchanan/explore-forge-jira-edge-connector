@@ -11,21 +11,21 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  // Schema builder
-  fc,
-  getFieldNames,
-  getSchemaMetadata,
-  isSecretField,
+  // Forge KVS adapter
+  createForgeKvsStore,
   // Resolver functions
   deleteConfigValue,
+  // Schema builder
+  fc,
   getAllConfigValues,
   getAllConfigValuesWithSource,
   getConfigValue,
   getConfigValueWithSource,
-  setConfigValues,
-  // Forge KVS adapter
-  createForgeKvsStore,
+  getFieldNames,
+  getSchemaMetadata,
+  isSecretField,
   listStoredConfigKeys,
+  setConfigValues,
 } from "../../src/config/index";
 
 describe("forge-ahead/config barrel exports", () => {
