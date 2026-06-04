@@ -14,6 +14,9 @@ type JecChannelWithApiKey = OpsComponents["schemas"]["JecChannelWithApiKey"];
 //   https://api.atlassian.com/ex/jira/{cloudId}/jsm/ops/api/v1/jec/
 // requestJira() prepends https://api.atlassian.com/ex/jira/{cloudId}, so routes
 // start at /jsm/ops/api/v1/jec/...
+// Confirmed via internal Slack thread (2026-05-28): the Stargate route for Forge
+// is /ex/jira/{cloudId}/jsm/ops/api/v1/... so requestJira with the path
+// /jsm/ops/api/v1/jec/channels is correct. See KNOWN_ISSUES.md §1.
 
 export interface ProvisionedJecChannel {
   channelId: string;
@@ -36,7 +39,7 @@ export async function provisionJecChannel(
   now: string,
 ): Promise<ProvisionedJecChannel> {
   const response = await api
-    .asApp()
+    .asUser()
     .requestJira(route`/jsm/ops/api/v1/jec/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,7 +97,7 @@ export async function dispatchReportTask(
   // We construct the URL manually since route`` does not support query strings.
   const channelId = task.channelId;
   const response = await api
-    .asApp()
+    .asUser()
     .requestJira(route`/jsm/ops/api/v1/jec/action?channelId=${channelId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -114,6 +117,13 @@ export async function dispatchReportTask(
 
   if (!response.ok) {
     const text = await response.text();
+    const message = `JEC dispatch failed (${response.status}): ${text}`;
+    console.error("[jec-channel-adapter] dispatchReportTask failed", {
+      taskId: task.id,
+      channelId,
+      status: response.status,
+      body: text,
+    });
     return {
       id: randomUUID(),
       taskId: task.id,
@@ -122,12 +132,17 @@ export async function dispatchReportTask(
       channelId: task.channelId,
       mode: "jec",
       createdAt: now,
-      message: `JEC dispatch failed (${response.status}): ${text}`,
+      message,
       metadata: { adapter: "jec-channel-adapter" },
     };
   }
 
   // 202 Accepted — JEC has queued the action for the receiver script.
+  console.log("[jec-channel-adapter] dispatchReportTask succeeded", {
+    taskId: task.id,
+    channelId,
+    status: response.status,
+  });
   return {
     id: randomUUID(),
     taskId: task.id,

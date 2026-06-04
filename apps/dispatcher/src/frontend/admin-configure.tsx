@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useState } from "react";
 type TaskMode = "simulator" | "jec";
 
 type ChannelSetup = {
+  apiKey: string;
   channelId: string;
   mode: TaskMode;
   provisionedAt: string;
@@ -99,7 +100,7 @@ const App = () => {
       setStatus({ isConfigured: true, setup: response.data.setup });
       setMessage(
         mode === "jec"
-          ? "JEC channel provisioned. Copy the API key shown on the main page into jec-config.json before starting the receiver."
+          ? "JEC channel provisioned. Copy the API key shown above into jec-config.json before starting the receiver."
           : "Simulator channel provisioned. The dispatcher can now be used without a live JEC receiver.",
       );
     } catch (err) {
@@ -135,7 +136,6 @@ const App = () => {
 
   return (
     <Stack space="space.300">
-      <Heading as="h1">Configure JEC Event Bridge</Heading>
       <Text>
         Provision the channel that the dispatcher uses before users can dispatch
         work to the on-premise receiver. Use simulator mode for local demos, or
@@ -171,6 +171,9 @@ const App = () => {
                 {status.setup.mode === "jec" ? "JEC" : "Simulator"}
               </Text>
               <Text>Channel ID: {status.setup.channelId}</Text>
+              {status.setup.mode === "jec" && (
+                <Text>API key: {status.setup.apiKey}</Text>
+              )}
               <Text>
                 Provisioned:{" "}
                 {new Date(status.setup.provisionedAt).toLocaleString()}
@@ -204,9 +207,8 @@ const App = () => {
                 }
               />
               <Text>
-                The public owner domain for the JEC channel (e.g.{" "}
-                <Text weight="bold">public_myorg</Text>). Must start with{" "}
-                <Text weight="bold">public_</Text>.
+                The public owner domain for the JEC channel (e.g.
+                "public_myorg"). Must start with "public_".
               </Text>
             </Stack>
           )}

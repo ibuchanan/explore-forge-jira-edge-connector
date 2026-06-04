@@ -5,6 +5,7 @@ import { logContext } from "forge-ahead";
 import {
   createTaskProjection,
   TASK_EVENT_TYPES,
+  TASK_STATUSES,
   type TaskMode,
 } from "../domain/task-state";
 import {
@@ -61,31 +62,52 @@ function failure(error: unknown) {
   return { ok: false, error: toErrorMessage(error) };
 }
 
-type PublicChannelSetup = Omit<ChannelSetup, "apiKey">;
+type PublicChannelSetup = ChannelSetup;
 
 function toPublicSetup(setup: ChannelSetup | null): PublicChannelSetup | null {
-  if (!setup) {
-    return null;
-  }
-
-  return {
-    channelId: setup.channelId,
-    mode: setup.mode,
-    provisionedAt: setup.provisionedAt,
-    note: setup.note,
-  };
+  return setup;
 }
 
-function getReceiverSetupDetail(setup: ChannelSetup | null): string {
+async function getReceiverStatus(
+  setup: ChannelSetup | null,
+): Promise<{ ok: boolean; detail: string }> {
   if (!setup) {
-    return "No channel has been provisioned yet.";
+    return { ok: false, detail: "No channel has been provisioned yet." };
   }
 
   if (setup.mode === "simulator") {
-    return "Simulator mode is ready; no on-premise receiver is required.";
+    return {
+      ok: true,
+      detail: "Simulator mode is ready; no on-premise receiver is required.",
+    };
   }
 
-  return "Copy the channel API key from the JEC Event Bridge page into jec-config.json and start the receiver.";
+  // For JEC mode, we can't directly observe whether the receiver is running.
+  // The best available proxy is whether any JEC task has ever been successfully
+  // dispatched (202 Accepted from JSM Ops API), which confirms the channel is
+  // reachable and the receiver was configured at least once.
+  const tasks = await listTasks();
+  console.log("[getReceiverStatus] task statuses", {
+    count: tasks.length,
+    statuses: tasks.map((t) => ({ id: t.id, mode: t.mode, status: t.status })),
+  });
+  const hasDispatched = tasks.some(
+    (t) => t.mode === "jec" && t.status === TASK_STATUSES.dispatched,
+  );
+
+  if (hasDispatched) {
+    return {
+      ok: true,
+      detail:
+        "At least one task has been successfully dispatched via JEC. Receiver appears configured.",
+    };
+  }
+
+  return {
+    ok: false,
+    detail:
+      "Copy the channel API key from the Configure page into jec-config.json and start the receiver.",
+  };
 }
 
 resolver.define("getSetupStatus", async (request: ResolverRequest) => {
@@ -123,10 +145,7 @@ resolver.define("getConnectionHealth", async (request: ResolverRequest) => {
           ? `${setup.mode === "jec" ? "JEC" : "Simulator"} channel ${setup.channelId} provisioned.`
           : "Provision a simulator or JEC channel from Configure App.",
       },
-      receiver: {
-        ok: setup?.mode === "simulator" || setup?.mode === "jec",
-        detail: getReceiverSetupDetail(setup),
-      },
+      receiver: await getReceiverStatus(setup),
       usage: {
         ok: isConfigured,
         detail: isConfigured
@@ -217,6 +236,13 @@ resolver.define(
           : createSimulatorDispatchEvent(task, nowIso());
 
       const projection = await appendTaskEvent(task.id, dispatchEvent);
+
+      console.log("[createTask] task dispatched", {
+        taskId: projection.id,
+        mode: projection.mode,
+        status: projection.status,
+        message: dispatchEvent.message,
+      });
 
       return success({ task: projection });
     } catch (error) {

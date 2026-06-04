@@ -58,6 +58,8 @@ const App = () => {
   const [health, setHealth] = useState<HealthCheck | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+  const [dispatchMessage, setDispatchMessage] = useState<string | null>(null);
 
   const runChecks = useCallback(async () => {
     setLoading(true);
@@ -83,12 +85,32 @@ const App = () => {
     void runChecks();
   }, [runChecks]);
 
+  const sendTestTask = useCallback(async () => {
+    setDispatching(true);
+    setDispatchMessage(null);
+    try {
+      const response = await invoke<ResolverResponse<{ task: { id: string } }>>(
+        "createTask",
+        { name: "Health check test task", context: "Sent from admin status page to verify receiver is configured." },
+      );
+      if (!response.ok) {
+        setDispatchMessage(`Dispatch failed: ${response.error}`);
+      } else {
+        setDispatchMessage(`Test task dispatched (ID: ${response.data?.task.id ?? "unknown"}).`);
+        await runChecks();
+      }
+    } catch (err) {
+      setDispatchMessage(`Dispatch error: ${getErrorMessage(err)}`);
+    } finally {
+      setDispatching(false);
+    }
+  }, [runChecks]);
+
   const checks = health ? checksFrom(health) : [];
   const allOk = checks.every((check) => check.ok);
 
   return (
     <Stack space="space.300">
-      <Heading as="h1">JEC Event Bridge Status</Heading>
       <Text>
         Admin status for the dispatcher channel, receiver setup, and whether the
         main usage screen is currently open or blocked.
@@ -123,9 +145,25 @@ const App = () => {
                 <Badge appearance={check.ok ? "added" : "removed"}>
                   {check.ok ? "OK" : "Action needed"}
                 </Badge>
-                <Stack space="space.0">
+                <Stack space="space.050">
                   <Text weight="medium">{check.label}</Text>
                   <Text color="color.text.subtle">{check.detail}</Text>
+                  {check.label === "Receiver setup" && health?.setup?.mode === "jec" && (
+                    <>
+                      {dispatchMessage && (
+                        <Text color={dispatchMessage.startsWith("Dispatch failed") || dispatchMessage.startsWith("Dispatch error") ? "color.text.warning" : "color.text.success"}>
+                          {dispatchMessage}
+                        </Text>
+                      )}
+                      <Button
+                        appearance="default"
+                        isDisabled={dispatching || loading}
+                        onClick={() => void sendTestTask()}
+                      >
+                        {dispatching ? "Dispatching…" : "Send test task"}
+                      </Button>
+                    </>
+                  )}
                 </Stack>
               </Inline>
             </Box>
