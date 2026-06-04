@@ -24,11 +24,16 @@ modules:
     - key: jec-cleanup
       function: cleanup
       interval: hour
+  webtrigger:
+    - key: jec-dispatch-webtrigger
+      function: dispatchViaWebtrigger
   function:
     - key: resolver
       handler: index.handler
     - key: cleanup
       handler: index.cleanup
+    - key: dispatchViaWebtrigger
+      handler: index.dispatchViaWebtrigger
   jira:globalPage:
     - key: jec-event-bridge-global-page
       title: JEC Event Bridge

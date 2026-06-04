@@ -36,9 +36,14 @@ describe("JEC sample app manifest", () => {
     );
   });
 
-  it("should have no webtrigger module", () => {
+  it("should have the asApp dispatch webtrigger module", () => {
     const manifest = loadManifest();
-    expect(manifest.modules.webtrigger || []).toEqual([]);
+    expect(manifest.modules.webtrigger || []).toEqual([
+      expect.objectContaining({
+        key: "jec-dispatch-webtrigger",
+        function: "dispatchViaWebtrigger",
+      }),
+    ]);
   });
 
   it("should wire cleanup function through scheduledTrigger", () => {
