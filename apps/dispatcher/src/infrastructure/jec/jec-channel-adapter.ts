@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import api, { route } from "@forge/api";
+import type { AuthForEvent } from "forge-ahead";
 import type { components as OpsComponents } from "forge-ahead/apis/jira-service-desk-ops";
+
+type AuthClient = Pick<AuthForEvent, "auth">;
 import {
   TASK_EVENT_TYPES,
   TASK_STATUSES,
@@ -83,6 +86,11 @@ export async function provisionJecChannel(
  * A 202 Accepted response means the action was queued. JEC will invoke the
  * receiver script asynchronously — there is no synchronous completion signal.
  *
+ * The auth client is resolved by the caller via `getAuthForEvent` — this keeps
+ * the adapter free of any opinion on auth strategy. In a resolver context,
+ * `getAuthForEvent` returns `asUser()`; in a webtrigger context (no user
+ * context), it falls through to `asApp()`. Both paths use the same function.
+ *
  * Note: SendJecActionDto.details is typed as Record<string, never> in the
  * generated types — this is a codegen artefact. We cast to Record<string, unknown>.
  *
@@ -92,13 +100,14 @@ export async function dispatchReportTask(
   task: TaskProjection,
   _cloudId: string,
   now: string,
+  { auth }: AuthClient,
 ): Promise<TaskEvent> {
   // The channelId query param is required by the JEC action endpoint.
   // We construct the URL manually since route`` does not support query strings.
   const channelId = task.channelId;
-  const response = await api
-    .asUser()
-    .requestJira(route`/jsm/ops/api/v1/jec/action?channelId=${channelId}`, {
+  const response = await auth.requestJira(
+    route`/jsm/ops/api/v1/jec/action?channelId=${channelId}`,
+    {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -113,7 +122,8 @@ export async function dispatchReportTask(
           dispatchedAt: now,
         } as Record<string, unknown>,
       }),
-    });
+    },
+  );
 
   if (!response.ok) {
     const text = await response.text();

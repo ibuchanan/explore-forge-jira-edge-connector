@@ -62,28 +62,43 @@ Two bugs existed in the original implementation:
 | `ownerDomain` | `false` (boolean) | `"public_<identifier>"` (a string beginning with `"public_"`) |
 | `name` timestamp | `Date.now()` (unix ms integer) | ISO 8601 string (e.g. `new Date().toISOString()`) |
 
-### 4. JEC endpoints require `asUser()` — `asApp()` returns 403
+### 4. JEC endpoints return 403 when called with `asApp()` — misleading error message
 
 **Affected file:** `apps/dispatcher/src/infrastructure/jec/jec-channel-adapter.ts`
 **Discovered:** 2026-06-04
+**Confirmed:** 2026-06-04 (via webtrigger experiment)
 
 Both the channel provisioning (`POST /jsm/ops/api/v1/jec/channels`) and action
-dispatch (`POST /jsm/ops/api/v1/jec/action`) endpoints require `api.asUser()`
-in Forge. Using `api.asApp()` results in:
+dispatch (`POST /jsm/ops/api/v1/jec/action`) endpoints return 403 when called
+with `api.asApp()`:
 
 ```json
-{"code":40301,"message":"Account does not have access to Opsgenie.","took":...}
+{"code":40301,"message":"Account does not have access to Opsgenie.","took":0.062}
 ```
 
-This is misleading — the error looks like a missing product license, but the
-actual cause is that `asApp()` identity does not carry the Opsgenie entitlement
-check that the JEC API enforces. The user's own identity (via `asUser()`) does.
+**This error message is misleading.** The site does have an active Opsgenie /
+JSM Ops entitlement — proven by the same request succeeding with `api.asUser()`.
+The real cause is that the `asApp()` identity (the Forge app itself) does not
+carry the Opsgenie subscription context that the JEC API enforces. The JEC API
+appears to check entitlement against the calling *account*, and the app's service
+account identity does not have that entitlement even when the site does.
+
+**Confirmed by experiment:** A webtrigger (which has no user context and therefore
+uses `asApp()`) was invoked against a provisioned JEC channel on a site with an
+active JSM Ops subscription. The response was `"status": "dispatch_failed"` with
+the 403 body above. The same dispatch call via the UI resolver (using `asUser()`)
+succeeds on the same site.
 
 **Implication for webtriggers:** Any webtrigger handler that needs to call JEC
-endpoints cannot use `asApp()`. Webtriggers do not have a user context by
-default, so calls to JEC endpoints from a webtrigger will need a stored user
-token or a different auth strategy (e.g. store the invoking user's account ID
-at setup time and use it via OAuth).
+endpoints will receive a 403. Webtriggers have no user context, so there is no
+direct equivalent to `asUser()`. Possible mitigations (none yet implemented):
+
+- Store a user account ID at setup time and use `asUser(accountId)` in the webtrigger
+- Use a Forge Remote + OAuth 2.0 (3LO) token stored in KVS
+
+**Needs investigation:** It is unclear whether this is intended API behaviour or
+a bug in the JEC entitlement check. This should be reported to both the Forge
+platform team and the JSM Ops/JEC team for clarification.
 
 ### 3. `CreateJecChannelDto` type — codegen error
 

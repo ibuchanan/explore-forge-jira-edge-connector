@@ -2,7 +2,6 @@ import { invoke } from "@forge/bridge";
 import ForgeReconciler, {
   Badge,
   Button,
-  Heading,
   Inline,
   Label,
   LoadingButton,

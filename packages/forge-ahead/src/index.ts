@@ -39,7 +39,7 @@ export {
   buildSuccessResponse,
   logApiRouteRequest,
 } from "./forge/api/index";
-export type { AuthStrategy } from "./forge/auth";
+export type { AuthStrategy, AuthForEvent } from "./forge/auth";
 // Re-export authentication utilities
 export { getAuthForEvent, getAuthForRequest } from "./forge/auth";
 // Re-export common Forge function types
@@ -49,6 +49,11 @@ export type {
 } from "./forge/function";
 // Re-export scheduled function type
 export type { ScheduledFunction } from "./forge/triggers/scheduled";
+export type {
+  WebtriggerEvent,
+  WebtriggerFunction,
+  WebtriggerResponse,
+} from "./forge/triggers/webtrigger";
 // Re-export logging utilities
 export { logContext, logResult, truncateEvents } from "./forge/logging";
 // Re-export Forge Remote JWT types and utilities

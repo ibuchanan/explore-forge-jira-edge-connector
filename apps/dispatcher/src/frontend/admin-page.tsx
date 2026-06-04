@@ -3,7 +3,6 @@ import ForgeReconciler, {
   Badge,
   Box,
   Button,
-  Heading,
   Inline,
   SectionMessage,
   Stack,
@@ -91,12 +90,18 @@ const App = () => {
     try {
       const response = await invoke<ResolverResponse<{ task: { id: string } }>>(
         "createTask",
-        { name: "Health check test task", context: "Sent from admin status page to verify receiver is configured." },
+        {
+          name: "Health check test task",
+          context:
+            "Sent from admin status page to verify receiver is configured.",
+        },
       );
       if (!response.ok) {
         setDispatchMessage(`Dispatch failed: ${response.error}`);
       } else {
-        setDispatchMessage(`Test task dispatched (ID: ${response.data?.task.id ?? "unknown"}).`);
+        setDispatchMessage(
+          `Test task dispatched (ID: ${response.data?.task.id ?? "unknown"}).`,
+        );
         await runChecks();
       }
     } catch (err) {
@@ -148,22 +153,30 @@ const App = () => {
                 <Stack space="space.050">
                   <Text weight="medium">{check.label}</Text>
                   <Text color="color.text.subtle">{check.detail}</Text>
-                  {check.label === "Receiver setup" && health?.setup?.mode === "jec" && (
-                    <>
-                      {dispatchMessage && (
-                        <Text color={dispatchMessage.startsWith("Dispatch failed") || dispatchMessage.startsWith("Dispatch error") ? "color.text.warning" : "color.text.success"}>
-                          {dispatchMessage}
-                        </Text>
-                      )}
-                      <Button
-                        appearance="default"
-                        isDisabled={dispatching || loading}
-                        onClick={() => void sendTestTask()}
-                      >
-                        {dispatching ? "Dispatching…" : "Send test task"}
-                      </Button>
-                    </>
-                  )}
+                  {check.label === "Receiver setup" &&
+                    health?.setup?.mode === "jec" && (
+                      <>
+                        {dispatchMessage && (
+                          <Text
+                            color={
+                              dispatchMessage.startsWith("Dispatch failed") ||
+                              dispatchMessage.startsWith("Dispatch error")
+                                ? "color.text.warning"
+                                : "color.text.success"
+                            }
+                          >
+                            {dispatchMessage}
+                          </Text>
+                        )}
+                        <Button
+                          appearance="default"
+                          isDisabled={dispatching || loading}
+                          onClick={() => void sendTestTask()}
+                        >
+                          {dispatching ? "Dispatching…" : "Send test task"}
+                        </Button>
+                      </>
+                    )}
                 </Stack>
               </Inline>
             </Box>

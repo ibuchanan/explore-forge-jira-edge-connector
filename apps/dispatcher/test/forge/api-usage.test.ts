@@ -114,7 +114,10 @@ describe("API Usage Patterns", () => {
 
         const hasValidAuth =
           normalizedContext.includes(`.asUser().${methodName}`) ||
-          normalizedContext.includes(`.asApp().${methodName}`);
+          normalizedContext.includes(`.asApp().${methodName}`) ||
+          // auth client injected as AuthForEvent parameter — valid when the caller
+          // (resolver or webtrigger) resolves auth via api.asUser()/asApp() upstream.
+          normalizedContext.includes(`auth.${methodName}`);
 
         expect(
           hasValidAuth,

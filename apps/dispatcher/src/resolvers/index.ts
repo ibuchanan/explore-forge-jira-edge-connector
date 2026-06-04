@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import api from "@forge/api";
 import Resolver from "@forge/resolver";
 import type { JSONValue } from "forge-ahead";
 import { logContext } from "forge-ahead";
@@ -230,9 +231,14 @@ resolver.define(
         message: "Task was created by the Jira global page.",
       });
 
+      // Resolvers always have a user context — use asUser() directly.
+      // The adapter accepts AuthForEvent so both resolvers and webtriggers
+      // (which use getAuthForEvent → asApp()) share one code path.
       const dispatchEvent =
         setup.mode === "jec"
-          ? await dispatchReportTask(task, cloudId, nowIso())
+          ? await dispatchReportTask(task, cloudId, nowIso(), {
+              auth: api.asUser(),
+            })
           : createSimulatorDispatchEvent(task, nowIso());
 
       const projection = await appendTaskEvent(task.id, dispatchEvent);
