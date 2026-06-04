@@ -14,6 +14,7 @@
     "clean": "turbo run clean",
     "dev": "turbo run dev",
     "forge:deploy": "turbo run forge:deploy",
+    "forge:register": "turbo run forge:register",
     "forge:install": "turbo run forge:install",
     "forge:uninstall": "turbo run forge:uninstall",
     "forge:upgrade": "turbo run forge:upgrade",

@@ -19,6 +19,7 @@
     "clean": "rm -rf ./dist",
     "dev": "tsdown --watch",
     "forge:deploy": "source .env && forge deploy --environment $FORGE_ENVIRONMENT",
+    "forge:register": "forge register",
     "forge:install": "source .env && forge install --site \"$SITENAME.atlassian.net\" --product $PRODUCT --environment $FORGE_ENVIRONMENT --non-interactive",
     "forge:lint": "forge lint",
     "forge:uninstall": "source .env && forge uninstall --site \"$SITENAME.atlassian.net\" --product $PRODUCT",
