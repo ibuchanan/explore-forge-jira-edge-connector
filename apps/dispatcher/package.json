@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
+  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -47,7 +48,7 @@
     "@forge/kvs": "^1.6",
     "@forge/react": "^11.16",
     "@forge/resolver": "^1.8",
-    "forge-ahead": "^0.3.0",
+    "forge-ahead": "^0.4.0",
     "react": "^18.2"
   },
   "devDependencies": {
