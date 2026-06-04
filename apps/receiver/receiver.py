@@ -156,10 +156,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="JEC receiver script for the Forge dispatcher exemplar."
     )
-    parser.add_argument("--payload", required=True, help="JSON task payload from JEC")
-    parser.add_argument("--apiKey", required=True, help="JEC API key")
-    parser.add_argument("--jsmUrl", required=True, help="JSM base URL")
-    parser.add_argument("--logLevel", required=True, help="Log level")
+    parser.add_argument("-payload", "--payload", required=True, help="JSON task payload from JEC")
+    parser.add_argument("-apiKey", "--apiKey", required=True, help="JEC API key")
+    parser.add_argument("-jsmUrl", "--jsmUrl", required=True, help="JSM base URL")
+    parser.add_argument("-logLevel", "--logLevel", required=True, help="Log level")
     parser.add_argument(
         "--jecNamedPipe",
         required=False,
