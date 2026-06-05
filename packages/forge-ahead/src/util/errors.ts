@@ -235,6 +235,8 @@ StandardError.add(415, "Unsupported Media Type"); // Invalid YAML, Invalid manif
 StandardError.add(416, "Range Not Satisfiable"); // Action or Input missing or invalid
 StandardError.add(422, "Unprocessable Content"); // Got a null when non-null expected
 StandardError.add(500, "Internal Server Error"); // Unexpected
+StandardError.add(502, "Bad Gateway"); // Upstream dependency (e.g. JEC) returned an error
+StandardError.add(503, "Service Unavailable"); // App not configured or dependency unavailable
 StandardError.add(507, "Insufficient Storage"); // Failed to write output file
 
 /**
