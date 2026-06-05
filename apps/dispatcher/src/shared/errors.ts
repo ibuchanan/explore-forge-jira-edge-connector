@@ -17,6 +17,10 @@ export function toErrorMessage(error: unknown): string {
     return error.message;
   }
 
+  if (typeof error === "string" && error.length > 0) {
+    return error;
+  }
+
   return "An unexpected error occurred.";
 }
 

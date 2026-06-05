@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
 import {
   getAuthForEvent,
+  type ProblemDetails,
   type WebtriggerEvent,
   type WebtriggerResponse,
 } from "forge-ahead";
-import { createTaskProjection, TASK_EVENT_TYPES } from "../domain/task-state";
+import {
+  createTaskProjection,
+  TASK_EVENT_TYPES,
+  TASK_STATUSES,
+} from "../domain/task-state";
 import { dispatchReportTask } from "../infrastructure/jec/jec-channel-adapter";
 import { createSimulatorDispatchEvent } from "../infrastructure/jec/simulator-adapter";
 import { getChannelSetup } from "../infrastructure/storage/channel-store";
@@ -12,6 +17,7 @@ import {
   appendTaskEvent,
   saveNewTask,
 } from "../infrastructure/storage/task-store";
+import { toProblemDetails } from "../shared/errors";
 
 /**
  * Webtrigger handler that dispatches a JEC event.
@@ -24,9 +30,13 @@ import {
  * The webtrigger accepts an optional JSON body:
  *   { "name": "task name", "context": "optional context string" }
  *
- * It always returns HTTP 200 with a JSON body:
- *   { "ok": true,  "task": { ...projection } }
- *   { "ok": false, "error": "message" }
+ * Success returns HTTP 200 with a JSON body:
+ *   { "ok": true, "task": { ...projection } }
+ *
+ * Errors return an RFC 9457 Problem Details body with the appropriate status:
+ *   - 401 if app authentication fails
+ *   - 503 if the app is not yet configured
+ *   - 500 for unexpected errors
  */
 export async function dispatchViaWebtrigger(
   request: WebtriggerEvent,
@@ -40,20 +50,28 @@ export async function dispatchViaWebtrigger(
     statusText: "OK",
   });
 
+  const problemBody = (problem: ProblemDetails): WebtriggerResponse => ({
+    body: JSON.stringify(problem),
+    headers: { "Content-Type": ["application/problem+json"] },
+    statusCode: problem.status,
+    statusText: problem.title,
+  });
+
   try {
     const authResult = getAuthForEvent(request);
     if (authResult.isErr()) {
-      return jsonBody({ ok: false, error: authResult.error.detail });
+      return problemBody(authResult.error);
     }
 
     const setup = await getChannelSetup();
 
     if (!setup) {
-      return jsonBody({
-        ok: false,
-        error:
+      return problemBody(
+        toProblemDetails(
           "The dispatcher is not configured. Ask an admin to provision a channel from Configure App before dispatching work.",
-      });
+          503,
+        ),
+      );
     }
 
     // Parse optional request body for name/context overrides.
@@ -109,10 +127,18 @@ export async function dispatchViaWebtrigger(
       message: dispatchEvent.message,
     });
 
+    if (projection.status === TASK_STATUSES.dispatch_failed) {
+      return problemBody(
+        toProblemDetails(projection.lastMessage, 502),
+      );
+    }
+
     return jsonBody({ ok: true, task: projection });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[dispatchViaWebtrigger] unexpected error", { message });
-    return jsonBody({ ok: false, error: message });
+    const problem = toProblemDetails(error, 500);
+    console.error("[dispatchViaWebtrigger] unexpected error", {
+      detail: problem.detail,
+    });
+    return problemBody(problem);
   }
 }
