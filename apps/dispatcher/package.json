@@ -44,17 +44,17 @@
     "markdown-it": "^14.1.1"
   },
   "dependencies": {
-    "@forge/api": "^7.2",
-    "@forge/bridge": "^5.16",
-    "@forge/kvs": "^1.6",
-    "@forge/react": "^11.16",
-    "@forge/resolver": "^1.8",
+    "@forge/api": "^8.0",
+    "@forge/bridge": "^6.0",
+    "@forge/kvs": "^2.0",
+    "@forge/react": "^12.0",
+    "@forge/resolver": "^2.0",
     "forge-ahead": "^0.4.0",
     "react": "^18.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
-    "@types/node": "25",
+    "@biomejs/biome": "2.5.0",
+    "@types/node": "24",
     "archunit": "^2.3",
     "tsdown": "^0.22",
     "typescript": "^5.9",

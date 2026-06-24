@@ -128,9 +128,7 @@ export async function dispatchViaWebtrigger(
     });
 
     if (projection.status === TASK_STATUSES.dispatch_failed) {
-      return problemBody(
-        toProblemDetails(projection.lastMessage, 502),
-      );
+      return problemBody(toProblemDetails(projection.lastMessage, 502));
     }
 
     return jsonBody({ ok: true, task: projection });

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { err, ok, type ProblemDetails } from "forge-ahead";
-import { TASK_STATUSES, type TaskProjection } from "../../src/domain/task-state";
+import {
+  TASK_STATUSES,
+  type TaskProjection,
+} from "../../src/domain/task-state";
 
 // ---------------------------------------------------------------------------
 // Module mocks.
@@ -52,7 +55,9 @@ const mockGetChannelSetup = vi.mocked(getChannelSetup);
 const mockSaveNewTask = vi.mocked(saveNewTask);
 const mockAppendTaskEvent = vi.mocked(appendTaskEvent);
 const mockDispatchReportTask = vi.mocked(dispatchReportTask);
-const mockCreateSimulatorDispatchEvent = vi.mocked(createSimulatorDispatchEvent);
+const mockCreateSimulatorDispatchEvent = vi.mocked(
+  createSimulatorDispatchEvent,
+);
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -91,10 +96,7 @@ function makeProjection(status: keyof typeof TASK_STATUSES): TaskProjection {
   };
 }
 
-function makeDispatchEvent(
-  status: keyof typeof TASK_STATUSES,
-  message = "ok",
-) {
+function makeDispatchEvent(status: keyof typeof TASK_STATUSES, message = "ok") {
   return {
     id: "event-1",
     taskId: "task-1",
@@ -237,9 +239,7 @@ describe("dispatchViaWebtrigger", () => {
     it("should trim name and pass context from request body", async () => {
       mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
-      mockDispatchReportTask.mockResolvedValue(
-        makeDispatchEvent("dispatched"),
-      );
+      mockDispatchReportTask.mockResolvedValue(makeDispatchEvent("dispatched"));
       mockAppendTaskEvent.mockResolvedValue(makeProjection("dispatched"));
 
       await dispatchViaWebtrigger(

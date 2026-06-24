@@ -188,8 +188,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@forge/api": "^7.2.1",
-    "@forge/kvs": "^1.6.4",
+    "@forge/api": "^8.0",
+    "@forge/kvs": "^2.0",
     "jmespath": "^0.16",
     "jose": "^6.2",
     "neverthrow": "^8.2",
