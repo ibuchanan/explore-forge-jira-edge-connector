@@ -122,9 +122,10 @@ const App = () => {
 
   const loadSetup = useCallback(async () => {
     try {
-      const response = await invoke<
-        ResolverResponse<{ setup: ChannelSetup | null }>
-      >("getSetupStatus", {});
+      const response = (await invoke(
+        "getSetupStatus",
+        {},
+      )) as ResolverResponse<{ setup: ChannelSetup | null }>;
       const data = getResponseData(response, { setup: null });
       setSetup(data.setup);
     } catch (err) {
@@ -134,10 +135,9 @@ const App = () => {
 
   const loadTasks = useCallback(async () => {
     try {
-      const response = await invoke<ResolverResponse<{ tasks: Task[] }>>(
-        "listTasks",
-        {},
-      );
+      const response = (await invoke("listTasks", {})) as ResolverResponse<{
+        tasks: Task[];
+      }>;
       const data = getResponseData(response, { tasks: [] });
       setTasks(data.tasks);
     } catch (err) {
@@ -164,14 +164,11 @@ const App = () => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const response = await invoke<ResolverResponse<{ task: Task }>>(
-        "createTask",
-        {
-          name: taskName,
-          context: taskContext,
-          mode: setup.mode,
-        },
-      );
+      const response = (await invoke("createTask", {
+        name: taskName,
+        context: taskContext,
+        mode: setup.mode,
+      })) as ResolverResponse<{ task: Task }>;
       if (!response.ok) {
         setError(response.error || "Task creation failed.");
       } else {
@@ -190,9 +187,9 @@ const App = () => {
   const handleViewTask = useCallback(async (taskId: string) => {
     setError(null);
     try {
-      const response = await invoke<
-        ResolverResponse<{ detail: TaskDetail | null }>
-      >("getTask", { taskId });
+      const response = (await invoke("getTask", {
+        taskId,
+      })) as ResolverResponse<{ detail: TaskDetail | null }>;
       const data = getResponseData(response, { detail: null });
       setSelectedTask(data.detail);
     } catch (err) {

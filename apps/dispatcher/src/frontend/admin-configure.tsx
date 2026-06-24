@@ -61,10 +61,10 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await invoke<ResolverResponse<ConfigStatus>>(
+      const response = (await invoke(
         "getConnectionStatus",
         {},
-      );
+      )) as ResolverResponse<ConfigStatus>;
       if (!response.ok) {
         setError(response.error || "Could not load configuration.");
         return;
@@ -88,10 +88,10 @@ const App = () => {
     setError(null);
     setMessage(null);
     try {
-      const response = await invoke<ResolverResponse<{ setup: ChannelSetup }>>(
-        "provisionChannel",
-        { mode, ...(mode === "jec" ? { ownerDomain } : {}) },
-      );
+      const response = (await invoke("provisionChannel", {
+        mode,
+        ...(mode === "jec" ? { ownerDomain } : {}),
+      })) as ResolverResponse<{ setup: ChannelSetup }>;
       if (!response.ok || !response.data?.setup) {
         setError(response.error || "Provisioning failed.");
         return;
@@ -114,10 +114,10 @@ const App = () => {
     setError(null);
     setMessage(null);
     try {
-      const response = await invoke<ResolverResponse<ConfigStatus>>(
+      const response = (await invoke(
         "resetConnection",
         {},
-      );
+      )) as ResolverResponse<ConfigStatus>;
       if (!response.ok) {
         setError(response.error || "Reset failed.");
         return;

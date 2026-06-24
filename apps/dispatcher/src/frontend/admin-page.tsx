@@ -64,10 +64,10 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await invoke<ResolverResponse<HealthCheck>>(
+      const response = (await invoke(
         "getConnectionHealth",
         {},
-      );
+      )) as ResolverResponse<HealthCheck>;
       if (!response.ok || !response.data) {
         setError(response.error || "Could not run status checks.");
         return;
@@ -88,14 +88,11 @@ const App = () => {
     setDispatching(true);
     setDispatchMessage(null);
     try {
-      const response = await invoke<ResolverResponse<{ task: { id: string } }>>(
-        "createTask",
-        {
-          name: "Health check test task",
-          context:
-            "Sent from admin status page to verify receiver is configured.",
-        },
-      );
+      const response = (await invoke("createTask", {
+        name: "Health check test task",
+        context:
+          "Sent from admin status page to verify receiver is configured.",
+      })) as ResolverResponse<{ task: { id: string } }>;
       if (!response.ok) {
         setDispatchMessage(`Dispatch failed: ${response.error}`);
       } else {

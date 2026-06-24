@@ -47,10 +47,10 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await invoke<ResolverResponse<HealthCheck>>(
+      const response = (await invoke(
         "getConnectionHealth",
         {},
-      );
+      )) as ResolverResponse<HealthCheck>;
       if (!response.ok || !response.data) {
         setError(response.error || "Could not load setup checklist.");
         return;
