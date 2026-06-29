@@ -31,7 +31,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "turbo": "^2.9.16"
+    "turbo": "^2.10.0"
   },
   "packageManager": "npm@11.12.1"
 }
