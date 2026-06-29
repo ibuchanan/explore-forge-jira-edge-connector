@@ -58,7 +58,10 @@ app:
   id: ari:cloud:ecosystem::app/e4d5469f-2c1d-4a49-b666-4c28844f0e7f
 permissions:
   scopes:
-    - storage:app
-    - read:ops-config:jira-service-management
-    - write:ops-config:jira-service-management
-    - delete:ops-config:jira-service-management
+    storage:app: {}
+    read:ops-config:jira-service-management:
+      allowImpersonation: true
+    write:ops-config:jira-service-management:
+      allowImpersonation: true
+    delete:ops-config:jira-service-management:
+      allowImpersonation: true
