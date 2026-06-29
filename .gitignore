@@ -28,7 +28,6 @@ yarn-error.log*
 *.tgz
 .env
 .env.*
-!.env.example
 .turbo/
 .yarn/*
 !.yarn/releases

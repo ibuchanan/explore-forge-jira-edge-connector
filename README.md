@@ -34,7 +34,7 @@ Forge dispatcher  →  JSM Ops API  →  JEC binary  →  receiver.py
 
 ```bash
 # 1. Copy and fill in environment variables
-cp apps/dispatcher/.env.example apps/dispatcher/.env
+cp apps/dispatcher/example.env apps/dispatcher/.env
 
 # 2. Forge register to make the app yours
 npm run forge:register
