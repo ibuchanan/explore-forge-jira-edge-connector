@@ -47,7 +47,9 @@ npm run forge:install
 ```
 
 Then open the **Configure App** page on your JSM site to provision a JEC channel.
-The page displays the API key needed for `jec-config.json`.
+Provisioning automatically sets the **actAs account** (the user identity the app
+impersonates for all JEC API calls) to the provisioner. The page displays the API
+key needed for `jec-config.json`.
 
 ## Quick start: Receiver
 
@@ -96,9 +98,18 @@ The dispatcher supports a `simulator` mode that skips the real JSM Ops HTTP call
 
 The **JEC Event Bridge Status** global page shows channel setup details
 (including the API key for copy-paste into `jec-config.json`)
-and a receiver status check.
-The status check inspects task history
-to confirm at least one JEC task has been successfully dispatched.
+and a receiver status check. The status check surfaces the most recent JEC task
+result (success or failure with timestamp and message) rather than a binary
+"has anything ever worked" — this makes it useful for diagnosing actAs account
+changes and other configuration problems.
+
+### actAs account
+
+JEC endpoints only accept `asUser()` auth. The app stores a named actAs account
+ID in Forge KVS independently from the JEC channel. It defaults to the provisioner
+at setup and can be changed from the **Configure App** page (via UserPicker) without
+re-provisioning the channel. This is the recovery path when the original provisioner
+leaves the organisation and their account is deprovisioned.
 
 ## Known issues and API gotchas
 
@@ -106,7 +117,7 @@ See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for documented discrepancies between At
 and actual runtime behaviour, including:
 
 - The correct Stargate route for `requestJira()` vs. direct OAuth 2.0 calls
-- JEC endpoints require `asUser()` — `asApp()` returns 403
+- JEC endpoints require `asUser()` — `asApp()` returns a misleading 403; resolved via actAs account (see `specs/jec-dispatch-auth-model.md`)
 - `CreateJecChannelDto` codegen error (`ownerDomain` typed as `boolean`, correct type is `string`)
 
 ## Packages
