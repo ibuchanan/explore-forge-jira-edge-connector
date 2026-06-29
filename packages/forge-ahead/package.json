@@ -193,15 +193,15 @@
     "jmespath": "^0.16",
     "jose": "^6.2",
     "neverthrow": "^8.2",
-    "sort-package-json": "^4.0.0",
+    "sort-package-json": "^4.0",
     "yaml": "^2.9"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.31.6",
+    "@redocly/cli": "^2.35",
     "@types/jmespath": "^0.15",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1",
     "archunit": "^2.3",
     "openapi-typescript": "^7.8",
-    "tsdown": "^0.22.2"
+    "tsdown": "^0.22"
   }
 }
