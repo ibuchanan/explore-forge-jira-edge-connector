@@ -18,6 +18,11 @@ import {
   createSimulatorDispatchEvent,
 } from "../infrastructure/jec/simulator-adapter";
 import {
+  deleteActAsAccountId,
+  getActAsAccountId,
+  saveActAsAccountId,
+} from "../infrastructure/storage/act-as-store";
+import {
   type ChannelSetup,
   deleteChannelSetup,
   getChannelSetup,
@@ -83,31 +88,39 @@ async function getReceiverStatus(
     };
   }
 
-  // For JEC mode, we can't directly observe whether the receiver is running.
-  // The best available proxy is whether any JEC task has ever been successfully
-  // dispatched (202 Accepted from JSM Ops API), which confirms the channel is
-  // reachable and the receiver was configured at least once.
+  // For JEC mode, surface the most recent JEC task result rather than a
+  // binary "has anything ever succeeded" — this makes the status useful for
+  // diagnosing configuration changes (e.g. a new actAs account that isn't working).
   const tasks = await listTasks();
-  console.log("[getReceiverStatus] task statuses", {
-    count: tasks.length,
-    statuses: tasks.map((t) => ({ id: t.id, mode: t.mode, status: t.status })),
-  });
-  const hasDispatched = tasks.some(
-    (t) => t.mode === "jec" && t.status === TASK_STATUSES.dispatched,
-  );
+  const jecTasks = tasks
+    .filter((t) => t.mode === "jec")
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
 
-  if (hasDispatched) {
+  const mostRecent = jecTasks[0];
+
+  if (!mostRecent) {
+    return {
+      ok: false,
+      detail:
+        "No JEC tasks dispatched yet. Copy the API key from the Configure page into jec-config.json and send a test task.",
+    };
+  }
+
+  const ts = new Date(mostRecent.updatedAt).toLocaleString();
+
+  if (mostRecent.status === TASK_STATUSES.dispatched) {
     return {
       ok: true,
-      detail:
-        "At least one task has been successfully dispatched via JEC. Receiver appears configured.",
+      detail: `Last dispatch succeeded at ${ts}: ${mostRecent.lastMessage}`,
     };
   }
 
   return {
     ok: false,
-    detail:
-      "Copy the channel API key from the Configure page into jec-config.json and start the receiver.",
+    detail: `Last dispatch failed at ${ts}: ${mostRecent.lastMessage}`,
   };
 }
 
@@ -164,6 +177,7 @@ resolver.define("resetConnection", async (request: ResolverRequest) => {
   logContext(request.context as JSONValue, "resetConnection");
   try {
     await deleteChannelSetup();
+    await deleteActAsAccountId();
     return success({ isConfigured: false, setup: null });
   } catch (error) {
     return failure(error);
@@ -189,7 +203,12 @@ resolver.define(
             }
           : createSimulatorChannel(now);
 
-      return success({ setup: await saveChannelSetup(setup) });
+      const savedSetup = await saveChannelSetup(setup);
+      // Auto-populate actAs with the provisioner's identity. This is the default
+      // that admins can later change via updateActAsUser without re-provisioning.
+      await saveActAsAccountId(userIdentifier);
+
+      return success({ setup: savedSetup });
     } catch (error) {
       return failure(error);
     }
@@ -208,6 +227,15 @@ resolver.define(
       if (!setup) {
         throw new Error(
           "The dispatcher is not configured. Ask an admin to provision a channel from Configure App before dispatching work.",
+        );
+      }
+
+      const actAsAccountId =
+        setup.mode === "jec" ? await getActAsAccountId() : null;
+
+      if (setup.mode === "jec" && !actAsAccountId) {
+        throw new Error(
+          "JEC dispatch account is not configured. Set an actAs user from the Configure App page.",
         );
       }
 
@@ -231,13 +259,10 @@ resolver.define(
         message: "Task was created by the Jira global page.",
       });
 
-      // Resolvers always have a user context — use asUser() directly.
-      // The adapter accepts AuthForEvent so both resolvers and webtriggers
-      // (which use getAuthForEvent → asApp()) share one code path.
       const dispatchEvent =
-        setup.mode === "jec"
+        setup.mode === "jec" && actAsAccountId
           ? await dispatchReportTask(task, cloudId, nowIso(), {
-              auth: api.asUser(),
+              auth: api.asUser(actAsAccountId),
             })
           : createSimulatorDispatchEvent(task, nowIso());
 
@@ -280,5 +305,32 @@ resolver.define("getTask", async (request: ResolverRequest<TaskIdPayload>) => {
     return failure(error);
   }
 });
+
+resolver.define("getActAsConfig", async (request: ResolverRequest) => {
+  logContext(request.context as JSONValue, "getActAsConfig");
+  try {
+    const accountId = await getActAsAccountId();
+    return success({ accountId });
+  } catch (error) {
+    return failure(error);
+  }
+});
+
+resolver.define(
+  "updateActAsUser",
+  async (request: ResolverRequest<{ accountId?: string }>) => {
+    logContext(request.context as JSONValue, "updateActAsUser");
+    try {
+      const accountId = request.payload?.accountId?.trim() || "";
+      if (!accountId) {
+        throw new Error("accountId is required.");
+      }
+      await saveActAsAccountId(accountId);
+      return success({ accountId });
+    } catch (error) {
+      return failure(error);
+    }
+  },
+);
 
 export const handler = resolver.getDefinitions();

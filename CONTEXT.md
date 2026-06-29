@@ -51,9 +51,28 @@ The on-premise work performed by the receiver after parsing the task payload. In
 
 A development/CI substitute for the real JEC channel adapter. Implements the same `JecChannelAdapter` interface but skips the JSM Ops HTTP call and records a `dispatched` state directly. Used in tests and local development.
 
+## actAs account
+
+The Atlassian user identity the dispatcher impersonates for all JEC API calls. JEC endpoints
+only accept `asUser()` auth — `asApp()` returns 403 regardless of site entitlement. The actAs
+account must have JSM Ops (Opsgenie) entitlement on the target site.
+
+Stored as a standalone KVS entry (`act-as-store.ts`), independent of the JEC channel.
+Defaults to the provisioner's identity at setup time; can be changed by any admin without
+re-provisioning the JEC channel. This independence is the recovery path when the original
+provisioner leaves the organisation and their account is deprovisioned.
+
+Distinct from:
+- The **provisioner** — the admin who created the JEC channel (may differ after account rotation)
+- The **current user** — whoever is logged in when a task is dispatched (may not have JSM Ops access)
+
 ## Channel store
 
 The Forge KVS store that persists channel metadata (channel ID, API key) after provisioning.
+
+## actAs store
+
+The Forge KVS store that persists the actAs account ID independently from channel metadata.
 
 ## Task store
 

@@ -1,25 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { err, ok, type ProblemDetails } from "forge-ahead";
+import type { ProblemDetails } from "forge-ahead";
 import {
   TASK_STATUSES,
   type TaskProjection,
 } from "../../src/domain/task-state";
 
-// ---------------------------------------------------------------------------
-// Module mocks.
-// forge-ahead is mocked with importOriginal so that StandardError and its
-// registered types (400, 401, 500, 502, 503, …) remain intact — only
-// getAuthForEvent is replaced with a controllable spy.
-// ---------------------------------------------------------------------------
-
-vi.mock("forge-ahead", async (importOriginal) => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  const actual = await importOriginal();
-  return { ...(actual as object), getAuthForEvent: vi.fn() };
-});
+vi.mock("@forge/api", () => ({
+  asUser: vi.fn().mockReturnValue({ requestJira: vi.fn() }),
+}));
 
 vi.mock("../../src/infrastructure/storage/channel-store", () => ({
   getChannelSetup: vi.fn(),
+}));
+
+vi.mock("../../src/infrastructure/storage/act-as-store", () => ({
+  getActAsAccountId: vi.fn(),
 }));
 
 vi.mock("../../src/infrastructure/storage/task-store", () => ({
@@ -36,7 +31,8 @@ vi.mock("../../src/infrastructure/jec/simulator-adapter", () => ({
 }));
 
 // Imports must come after vi.mock declarations (vitest hoists vi.mock calls).
-import { getAuthForEvent } from "forge-ahead";
+import { asUser } from "@forge/api";
+import { getActAsAccountId } from "../../src/infrastructure/storage/act-as-store";
 import { getChannelSetup } from "../../src/infrastructure/storage/channel-store";
 import {
   appendTaskEvent,
@@ -50,8 +46,9 @@ import { dispatchViaWebtrigger } from "../../src/webtriggers/dispatch";
 // Typed mock references
 // ---------------------------------------------------------------------------
 
-const mockGetAuthForEvent = vi.mocked(getAuthForEvent);
+const mockAsUser = vi.mocked(asUser);
 const mockGetChannelSetup = vi.mocked(getChannelSetup);
+const mockGetActAsAccountId = vi.mocked(getActAsAccountId);
 const mockSaveNewTask = vi.mocked(saveNewTask);
 const mockAppendTaskEvent = vi.mocked(appendTaskEvent);
 const mockDispatchReportTask = vi.mocked(dispatchReportTask);
@@ -71,8 +68,6 @@ function makeWebtriggerEvent(body?: object) {
   };
 }
 
-const STUB_AUTH = { auth: { requestJira: vi.fn() } };
-
 const STUB_SETUP = {
   channelId: "channel-abc",
   apiKey: "key-xyz",
@@ -80,6 +75,8 @@ const STUB_SETUP = {
   provisionedAt: "2026-06-01T00:00:00.000Z",
   note: "test",
 };
+
+const ACT_AS_ACCOUNT_ID = "account-123";
 
 function makeProjection(status: keyof typeof TASK_STATUSES): TaskProjection {
   return {
@@ -117,35 +114,11 @@ describe("dispatchViaWebtrigger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSaveNewTask.mockResolvedValue(makeProjection("pending"));
-  });
-
-  describe("auth failure", () => {
-    it("should return 401 Problem Details when auth fails", async () => {
-      const authError: ProblemDetails = {
-        type: "https://httpstatuses.io/401",
-        title: "Unauthorized",
-        status: 401,
-        detail: "No valid authentication context found.",
-        timestamp: "2026-06-04T20:00:00.000Z",
-      };
-      mockGetAuthForEvent.mockReturnValue(err(authError));
-
-      const response = await dispatchViaWebtrigger(makeWebtriggerEvent());
-
-      expect(response.statusCode).toBe(401);
-      expect(response.headers?.["Content-Type"]).toEqual([
-        "application/problem+json",
-      ]);
-      const body = JSON.parse(response.body ?? "{}") as ProblemDetails;
-      expect(body.status).toBe(401);
-      expect(body.title).toBe("Unauthorized");
-      expect(body.detail).toBe("No valid authentication context found.");
-    });
+    mockGetActAsAccountId.mockResolvedValue(ACT_AS_ACCOUNT_ID);
   });
 
   describe("app not configured", () => {
-    it("should return 503 Problem Details when channel setup is missing", async () => {
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
+    it("should return 503 when channel setup is missing", async () => {
       mockGetChannelSetup.mockResolvedValue(null);
 
       const response = await dispatchViaWebtrigger(makeWebtriggerEvent());
@@ -159,13 +132,24 @@ describe("dispatchViaWebtrigger", () => {
       expect(body.title).toBe("Service Unavailable");
       expect(body.detail).toContain("not configured");
     });
+
+    it("should return 503 when actAs account is missing for JEC mode", async () => {
+      mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
+      mockGetActAsAccountId.mockResolvedValue(null);
+
+      const response = await dispatchViaWebtrigger(makeWebtriggerEvent());
+
+      expect(response.statusCode).toBe(503);
+      const body = JSON.parse(response.body ?? "{}") as ProblemDetails;
+      expect(body.status).toBe(503);
+      expect(body.detail).toContain("actAs user");
+    });
   });
 
   describe("dispatch failure (JEC upstream error)", () => {
     it("should return 502 Problem Details when JEC returns an error", async () => {
       const jecMessage =
         'JEC dispatch failed (403): {"code":40301,"message":"Account does not have access to Opsgenie."}';
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
       mockDispatchReportTask.mockResolvedValue(
         makeDispatchEvent("dispatch_failed", jecMessage),
@@ -192,7 +176,6 @@ describe("dispatchViaWebtrigger", () => {
 
     it("should surface the JEC error message verbatim in the problem detail", async () => {
       const jecMessage = "JEC dispatch failed (500): internal server error";
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
       mockDispatchReportTask.mockResolvedValue(
         makeDispatchEvent("dispatch_failed", jecMessage),
@@ -212,7 +195,6 @@ describe("dispatchViaWebtrigger", () => {
 
   describe("successful dispatch", () => {
     it("should return 200 with task projection on success", async () => {
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
       mockDispatchReportTask.mockResolvedValue(
         makeDispatchEvent(
@@ -236,8 +218,17 @@ describe("dispatchViaWebtrigger", () => {
       expect(body.task.status).toBe(TASK_STATUSES.dispatched);
     });
 
+    it("should call asUser with the stored actAs account ID", async () => {
+      mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
+      mockDispatchReportTask.mockResolvedValue(makeDispatchEvent("dispatched"));
+      mockAppendTaskEvent.mockResolvedValue(makeProjection("dispatched"));
+
+      await dispatchViaWebtrigger(makeWebtriggerEvent());
+
+      expect(mockAsUser).toHaveBeenCalledWith(ACT_AS_ACCOUNT_ID);
+    });
+
     it("should trim name and pass context from request body", async () => {
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue(STUB_SETUP);
       mockDispatchReportTask.mockResolvedValue(makeDispatchEvent("dispatched"));
       mockAppendTaskEvent.mockResolvedValue(makeProjection("dispatched"));
@@ -253,7 +244,6 @@ describe("dispatchViaWebtrigger", () => {
     });
 
     it("should use simulator path when mode is simulator", async () => {
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockResolvedValue({
         ...STUB_SETUP,
         mode: "simulator",
@@ -269,13 +259,13 @@ describe("dispatchViaWebtrigger", () => {
 
       expect(mockDispatchReportTask).not.toHaveBeenCalled();
       expect(mockCreateSimulatorDispatchEvent).toHaveBeenCalledOnce();
+      expect(mockAsUser).not.toHaveBeenCalled();
       expect(response.statusCode).toBe(200);
     });
   });
 
   describe("unexpected error", () => {
     it("should return 500 Problem Details on unhandled exception", async () => {
-      mockGetAuthForEvent.mockReturnValue(ok(STUB_AUTH));
       mockGetChannelSetup.mockRejectedValue(
         new Error("KVS connection timeout"),
       );

@@ -67,6 +67,7 @@ Two bugs existed in the original implementation:
 **Affected file:** `apps/dispatcher/src/infrastructure/jec/jec-channel-adapter.ts`
 **Discovered:** 2026-06-04
 **Confirmed:** 2026-06-04 (via webtrigger experiment)
+**Resolved:** 2026-06-29 — see `specs/jec-dispatch-auth-model.md`
 
 Both the channel provisioning (`POST /jsm/ops/api/v1/jec/channels`) and action
 dispatch (`POST /jsm/ops/api/v1/jec/action`) endpoints return 403 when called
@@ -83,22 +84,12 @@ carry the Opsgenie subscription context that the JEC API enforces. The JEC API
 appears to check entitlement against the calling *account*, and the app's service
 account identity does not have that entitlement even when the site does.
 
-**Confirmed by experiment:** A webtrigger (which has no user context and therefore
-uses `asApp()`) was invoked against a provisioned JEC channel on a site with an
-active JSM Ops subscription. The response was `"status": "dispatch_failed"` with
-the 403 body above. The same dispatch call via the UI resolver (using `asUser()`)
-succeeds on the same site.
-
-**Implication for webtriggers:** Any webtrigger handler that needs to call JEC
-endpoints will receive a 403. Webtriggers have no user context, so there is no
-direct equivalent to `asUser()`. Possible mitigations (none yet implemented):
-
-- Store a user account ID at setup time and use `asUser(accountId)` in the webtrigger
-- Use a Forge Remote + OAuth 2.0 (3LO) token stored in KVS
-
-**Needs investigation:** It is unclear whether this is intended API behaviour or
-a bug in the JEC entitlement check. This should be reported to both the Forge
-platform team and the JSM Ops/JEC team for clarification.
+**Resolution:** All JEC API calls now use `asUser(actAsAccountId)` where
+`actAsAccountId` is a stored Atlassian account ID managed via
+`apps/dispatcher/src/infrastructure/storage/act-as-store.ts`. This account is
+auto-populated at provisioning time and can be changed independently via the
+Configure App page without re-provisioning the JEC channel. See ADR
+`docs/adr/0001-jec-dispatch-auth-model.md` for the full rationale.
 
 ### 3. `CreateJecChannelDto` type — codegen error
 

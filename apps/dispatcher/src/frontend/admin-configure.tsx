@@ -10,6 +10,7 @@ import ForgeReconciler, {
   Stack,
   Text,
   Textfield,
+  UserPicker,
 } from "@forge/react";
 import React, { useCallback, useEffect, useState } from "react";
 
@@ -52,6 +53,8 @@ const App = () => {
   });
   const [mode, setMode] = useState<TaskMode>("simulator");
   const [ownerDomain, setOwnerDomain] = useState<string>("");
+  const [actAsAccountId, setActAsAccountId] = useState<string | null>(null);
+  const [pendingActAs, setPendingActAs] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,17 +64,31 @@ const App = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = (await invoke(
-        "getConnectionStatus",
-        {},
-      )) as ResolverResponse<ConfigStatus>;
-      if (!response.ok) {
-        setError(response.error || "Could not load configuration.");
+      const [statusResponse, actAsResponse] = await Promise.all([
+        invoke("getConnectionStatus", {}) as Promise<
+          ResolverResponse<ConfigStatus>
+        >,
+        invoke("getActAsConfig", {}) as Promise<
+          ResolverResponse<{ accountId: string | null }>
+        >,
+      ]);
+
+      if (!statusResponse.ok) {
+        setError(statusResponse.error || "Could not load configuration.");
         return;
       }
-      const nextStatus = response.data || { isConfigured: false, setup: null };
+      const nextStatus = statusResponse.data || {
+        isConfigured: false,
+        setup: null,
+      };
       setStatus(nextStatus);
       setMode(nextStatus.setup?.mode || "simulator");
+
+      if (actAsResponse.ok) {
+        const id = actAsResponse.data?.accountId ?? null;
+        setActAsAccountId(id);
+        setPendingActAs(id);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -97,6 +114,16 @@ const App = () => {
         return;
       }
       setStatus({ isConfigured: true, setup: response.data.setup });
+      // Provisioning auto-sets actAs to the provisioner — reload it.
+      const actAsResponse = (await invoke(
+        "getActAsConfig",
+        {},
+      )) as ResolverResponse<{ accountId: string | null }>;
+      if (actAsResponse.ok) {
+        const id = actAsResponse.data?.accountId ?? null;
+        setActAsAccountId(id);
+        setPendingActAs(id);
+      }
       setMessage(
         mode === "jec"
           ? "JEC channel provisioned. Copy the API key shown above into jec-config.json before starting the receiver."
@@ -108,6 +135,28 @@ const App = () => {
       setBusy(false);
     }
   }, [mode, ownerDomain]);
+
+  const saveActAs = useCallback(async () => {
+    if (!pendingActAs) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = (await invoke("updateActAsUser", {
+        accountId: pendingActAs,
+      })) as ResolverResponse<{ accountId: string }>;
+      if (!response.ok) {
+        setError(response.error || "Failed to update actAs account.");
+        return;
+      }
+      setActAsAccountId(response.data?.accountId ?? null);
+      setMessage("actAs account updated.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [pendingActAs]);
 
   const reset = useCallback(async () => {
     setBusy(true);
@@ -123,6 +172,8 @@ const App = () => {
         return;
       }
       setStatus(response.data || { isConfigured: false, setup: null });
+      setActAsAccountId(null);
+      setPendingActAs(null);
       setMessage(
         "Configuration cleared. Usage is blocked until a channel is provisioned again.",
       );
@@ -132,6 +183,8 @@ const App = () => {
       setBusy(false);
     }
   }, []);
+
+  const actAsChanged = pendingActAs !== actAsAccountId;
 
   return (
     <Stack space="space.300">
@@ -226,6 +279,38 @@ const App = () => {
               Reset configuration
             </Button>
           </Inline>
+
+          <Stack space="space.100">
+            <Label labelFor="act-as-user">JEC dispatch account (actAs)</Label>
+            <Text>
+              All JEC API calls run as this user. Must have JSM Ops entitlement.
+              Defaults to the provisioner — change it here if that admin leaves.
+            </Text>
+            <UserPicker
+              name="act-as-user"
+              label="actAs account"
+              defaultValue={actAsAccountId ?? undefined}
+              onChange={(user) => setPendingActAs(user.id)}
+            />
+            {actAsAccountId === null && (
+              <SectionMessage
+                appearance="warning"
+                title="actAs account not set"
+              >
+                <Text>
+                  JEC dispatch is blocked until an actAs account is configured.
+                  Provisioning a channel sets this automatically.
+                </Text>
+              </SectionMessage>
+            )}
+            <Button
+              appearance="primary"
+              isDisabled={busy || !actAsChanged || !pendingActAs}
+              onClick={saveActAs}
+            >
+              Save actAs account
+            </Button>
+          </Stack>
         </Stack>
       )}
     </Stack>

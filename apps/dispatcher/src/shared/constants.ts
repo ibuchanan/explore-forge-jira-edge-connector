@@ -3,6 +3,7 @@ export const MAX_RECENT_TASKS = 25;
 
 export const STORE_KEYS = {
   setup: "setup:current",
+  actAs: "config:act-as-account-id",
   taskIndex: "task:index",
   taskProjection: (taskId: string) => `task:${taskId}:projection`,
   taskEvents: (taskId: string) => `task:${taskId}:events`,

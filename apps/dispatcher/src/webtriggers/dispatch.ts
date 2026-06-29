@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import {
-  getAuthForEvent,
-  type ProblemDetails,
-  type WebtriggerEvent,
-  type WebtriggerResponse,
+import { asUser } from "@forge/api";
+import type {
+  ProblemDetails,
+  WebtriggerEvent,
+  WebtriggerResponse,
 } from "forge-ahead";
 import {
   createTaskProjection,
@@ -12,6 +12,7 @@ import {
 } from "../domain/task-state";
 import { dispatchReportTask } from "../infrastructure/jec/jec-channel-adapter";
 import { createSimulatorDispatchEvent } from "../infrastructure/jec/simulator-adapter";
+import { getActAsAccountId } from "../infrastructure/storage/act-as-store";
 import { getChannelSetup } from "../infrastructure/storage/channel-store";
 import {
   appendTaskEvent,
@@ -22,10 +23,10 @@ import { toProblemDetails } from "../shared/errors";
 /**
  * Webtrigger handler that dispatches a JEC event.
  *
- * Auth is resolved via `getAuthForEvent` — since webtriggers have no user
- * context (`context.userAccess.enabled` is false), it naturally falls through
- * to `asApp()`. This keeps the code path identical to the resolver-based
- * `createTask`, which uses `asUser()` when a user context is present.
+ * JEC endpoints only support asUser() auth — asApp() returns 403.
+ * The webtrigger has no user context, so it uses the stored actAs account ID
+ * loaded from KVS via act-as-store. If the actAs account is not configured,
+ * the webtrigger returns 503 rather than forwarding a doomed request to JEC.
  *
  * The webtrigger accepts an optional JSON body:
  *   { "name": "task name", "context": "optional context string" }
@@ -34,8 +35,8 @@ import { toProblemDetails } from "../shared/errors";
  *   { "ok": true, "task": { ...projection } }
  *
  * Errors return an RFC 9457 Problem Details body with the appropriate status:
- *   - 401 if app authentication fails
- *   - 503 if the app is not yet configured
+ *   - 503 if the app is not yet configured or actAs account is missing
+ *   - 502 if JEC returns an error
  *   - 500 for unexpected errors
  */
 export async function dispatchViaWebtrigger(
@@ -58,17 +59,24 @@ export async function dispatchViaWebtrigger(
   });
 
   try {
-    const authResult = getAuthForEvent(request);
-    if (authResult.isErr()) {
-      return problemBody(authResult.error);
-    }
-
     const setup = await getChannelSetup();
 
     if (!setup) {
       return problemBody(
         toProblemDetails(
           "The dispatcher is not configured. Ask an admin to provision a channel from Configure App before dispatching work.",
+          503,
+        ),
+      );
+    }
+
+    const actAsAccountId =
+      setup.mode === "jec" ? await getActAsAccountId() : null;
+
+    if (setup.mode === "jec" && !actAsAccountId) {
+      return problemBody(
+        toProblemDetails(
+          "JEC dispatch account is not configured. Set an actAs user from the Configure App page.",
           503,
         ),
       );
@@ -111,11 +119,11 @@ export async function dispatchViaWebtrigger(
       message: "Task was created by the webtrigger.",
     });
 
-    // Auth resolved above: asApp() for webtriggers (no user context),
-    // asUser() for resolver context — same dispatchReportTask, different auth.
     const dispatchEvent =
-      setup.mode === "jec"
-        ? await dispatchReportTask(task, "", now, authResult.value)
+      setup.mode === "jec" && actAsAccountId
+        ? await dispatchReportTask(task, "", now, {
+            auth: asUser(actAsAccountId),
+          })
         : createSimulatorDispatchEvent(task, now);
 
     const projection = await appendTaskEvent(task.id, dispatchEvent);
