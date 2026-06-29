@@ -113,7 +113,12 @@ const cardStyles = xcss({
 const App = () => {
   const [setup, setSetup] = useState<ChannelSetup | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [taskDetails, setTaskDetails] = useState<Record<string, TaskDetail>>(
+    {},
+  );
   const [taskName, setTaskName] = useState("");
   const [taskContext, setTaskContext] = useState("");
   const [loading, setLoading] = useState(false);
@@ -184,18 +189,40 @@ const App = () => {
     }
   }, [taskName, taskContext, setup, loadTasks]);
 
-  const handleViewTask = useCallback(async (taskId: string) => {
-    setError(null);
-    try {
-      const response = (await invoke("getTask", {
-        taskId,
-      })) as ResolverResponse<{ detail: TaskDetail | null }>;
-      const data = getResponseData(response, { detail: null });
-      setSelectedTask(data.detail);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }, []);
+  const handleToggleTask = useCallback(
+    async (taskId: string) => {
+      if (expandedTaskIds.has(taskId)) {
+        setExpandedTaskIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+        return;
+      }
+      if (!taskDetails[taskId]) {
+        setError(null);
+        try {
+          const response = (await invoke("getTask", {
+            taskId,
+          })) as ResolverResponse<{ detail: TaskDetail | null }>;
+          const data = getResponseData(response, { detail: null });
+          const detail = data.detail;
+          if (detail) {
+            setTaskDetails((prev) => ({ ...prev, [taskId]: detail }));
+          }
+        } catch (err) {
+          setError(getErrorMessage(err));
+          return;
+        }
+      }
+      setExpandedTaskIds((prev) => {
+        const next = new Set(prev);
+        next.add(taskId);
+        return next;
+      });
+    },
+    [expandedTaskIds, taskDetails],
+  );
 
   const statusInfo = (status: string) =>
     statusAppearance[status] || {
@@ -205,7 +232,6 @@ const App = () => {
 
   return (
     <Stack space="space.300">
-      <Heading as="h1">JEC Event Bridge</Heading>
       <Text>
         Dispatch on-premise tasks via the Jira Edge Connector (JEC) using the
         JSM Ops REST API. Use Simulator mode for local development — no live JEC
@@ -341,33 +367,84 @@ const App = () => {
       {/* Task List */}
       <Box xcss={cardStyles}>
         <Stack space="space.200">
-          <Heading as="h2">Tasks ({tasks.length})</Heading>
+          <Heading as="h2">Most recent {tasks.length} tasks</Heading>
           {tasks.length === 0 ? (
             <Text>No tasks yet. Dispatch a task above to get started.</Text>
           ) : (
             <Stack space="space.100">
               {tasks.map((task) => {
                 const si = statusInfo(task.status);
+                const detail = taskDetails[task.id];
                 return (
                   <Box key={task.id} xcss={cardStyles}>
-                    <Inline spread="space-between" alignBlock="center">
-                      <Stack space="space.050">
-                        <Inline space="space.100" alignBlock="center">
-                          <Text>{task.name}</Text>
-                          <Badge appearance={si.appearance}>{si.label}</Badge>
-                          <Badge appearance="default">
-                            {task.mode === "jec" ? "JEC" : "Sim"}
-                          </Badge>
-                        </Inline>
-                        <Text>{task.lastMessage}</Text>
-                        <Text>
-                          Created: {new Date(task.createdAt).toLocaleString()}
-                        </Text>
-                      </Stack>
-                      <Button onClick={() => void handleViewTask(task.id)}>
-                        View
-                      </Button>
-                    </Inline>
+                    <Stack space="space.200">
+                      <Inline spread="space-between" alignBlock="center">
+                        <Stack space="space.050">
+                          <Inline space="space.100" alignBlock="center">
+                            <Text>{task.name}</Text>
+                            <Badge appearance={si.appearance}>{si.label}</Badge>
+                            <Badge appearance="default">
+                              {task.mode === "jec" ? "JEC" : "Sim"}
+                            </Badge>
+                          </Inline>
+                          <Text>{task.lastMessage}</Text>
+                          <Text>
+                            Created: {new Date(task.createdAt).toLocaleString()}
+                          </Text>
+                        </Stack>
+                        <Button onClick={() => void handleToggleTask(task.id)}>
+                          {expandedTaskIds.has(task.id) ? "Hide" : "Show"}
+                        </Button>
+                      </Inline>
+                      {expandedTaskIds.has(task.id) &&
+                        (detail ? (
+                          <Stack space="space.100">
+                            <Text>ID: {detail.task.id}</Text>
+                            <Text>Context: {detail.task.context}</Text>
+                            <Text>Channel: {detail.task.channelId}</Text>
+                            <Text>Mode: {detail.task.mode}</Text>
+                            <Heading as="h3">Event Timeline</Heading>
+                            {detail.events.length === 0 ? (
+                              <Text>No events recorded.</Text>
+                            ) : (
+                              <Stack space="space.100">
+                                {detail.events.map((event) => (
+                                  <Box key={event.id} xcss={cardStyles}>
+                                    <Stack space="space.050">
+                                      <Inline
+                                        space="space.100"
+                                        alignBlock="center"
+                                      >
+                                        <Text>{event.type}</Text>
+                                        {event.status && (
+                                          <Badge
+                                            appearance={
+                                              statusInfo(event.status)
+                                                .appearance
+                                            }
+                                          >
+                                            {statusInfo(event.status).label}
+                                          </Badge>
+                                        )}
+                                      </Inline>
+                                      {event.message && (
+                                        <Text>{event.message}</Text>
+                                      )}
+                                      <Text>
+                                        {new Date(
+                                          event.createdAt,
+                                        ).toLocaleString()}
+                                      </Text>
+                                    </Stack>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            )}
+                          </Stack>
+                        ) : (
+                          <Text>Loading…</Text>
+                        ))}
+                    </Stack>
                   </Box>
                 );
               })}
@@ -375,59 +452,6 @@ const App = () => {
           )}
         </Stack>
       </Box>
-
-      {/* Task Detail */}
-      {selectedTask && (
-        <Box xcss={cardStyles}>
-          <Stack space="space.200">
-            <Inline spread="space-between" alignBlock="center">
-              <Heading as="h2">Task Detail</Heading>
-              <Button onClick={() => setSelectedTask(null)}>Close</Button>
-            </Inline>
-            <Stack space="space.100">
-              <Text>ID: {selectedTask.task.id}</Text>
-              <Text>Name: {selectedTask.task.name}</Text>
-              <Text>Context: {selectedTask.task.context}</Text>
-              <Inline space="space.100" alignBlock="center">
-                <Text>Status:</Text>
-                <Badge
-                  appearance={statusInfo(selectedTask.task.status).appearance}
-                >
-                  {statusInfo(selectedTask.task.status).label}
-                </Badge>
-              </Inline>
-              <Text>Channel: {selectedTask.task.channelId}</Text>
-              <Text>Mode: {selectedTask.task.mode}</Text>
-            </Stack>
-
-            <Heading as="h3">Event Timeline</Heading>
-            {selectedTask.events.length === 0 ? (
-              <Text>No events recorded.</Text>
-            ) : (
-              <Stack space="space.100">
-                {selectedTask.events.map((event) => (
-                  <Box key={event.id} xcss={cardStyles}>
-                    <Stack space="space.050">
-                      <Inline space="space.100" alignBlock="center">
-                        <Text>{event.type}</Text>
-                        {event.status && (
-                          <Badge
-                            appearance={statusInfo(event.status).appearance}
-                          >
-                            {statusInfo(event.status).label}
-                          </Badge>
-                        )}
-                      </Inline>
-                      {event.message && <Text>{event.message}</Text>}
-                      <Text>{new Date(event.createdAt).toLocaleString()}</Text>
-                    </Stack>
-                  </Box>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        </Box>
-      )}
 
       {loading && (
         <Inline alignBlock="center" space="space.100">

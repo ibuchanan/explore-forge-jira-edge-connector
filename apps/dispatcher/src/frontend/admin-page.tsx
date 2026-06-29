@@ -193,6 +193,17 @@ const App = () => {
         >
           Configure App
         </Button>
+        <Button
+          appearance="default"
+          onClick={() =>
+            void router.navigate({
+              target: "module",
+              moduleKey: "jec-event-bridge-global-page",
+            })
+          }
+        >
+          JEC Event Bridge
+        </Button>
         <Button appearance="subtle" isDisabled={loading} onClick={runChecks}>
           {loading ? "Checking…" : "Refresh"}
         </Button>

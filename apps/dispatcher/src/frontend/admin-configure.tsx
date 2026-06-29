@@ -126,7 +126,7 @@ const App = () => {
       }
       setMessage(
         mode === "jec"
-          ? "JEC channel provisioned. Copy the API key shown above into jec-config.json before starting the receiver."
+          ? "JEC channel provisioned. Copy the API key shown below into jec-config.json before starting the receiver."
           : "Simulator channel provisioned. The dispatcher can now be used without a live JEC receiver.",
       );
     } catch (err) {
@@ -146,11 +146,11 @@ const App = () => {
         accountId: pendingActAs,
       })) as ResolverResponse<{ accountId: string }>;
       if (!response.ok) {
-        setError(response.error || "Failed to update actAs account.");
+        setError(response.error || "Failed to update dispatch account.");
         return;
       }
       setActAsAccountId(response.data?.accountId ?? null);
-      setMessage("actAs account updated.");
+      setMessage("Dispatch account updated.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -281,25 +281,25 @@ const App = () => {
           </Inline>
 
           <Stack space="space.100">
-            <Label labelFor="act-as-user">JEC dispatch account (actAs)</Label>
+            <Label labelFor="act-as-user">JEC dispatch account</Label>
             <Text>
               All JEC API calls run as this user. Must have JSM Ops entitlement.
               Defaults to the provisioner — change it here if that admin leaves.
             </Text>
             <UserPicker
               name="act-as-user"
-              label="actAs account"
+              label="Dispatch account"
               defaultValue={actAsAccountId ?? undefined}
               onChange={(user) => setPendingActAs(user.id)}
             />
             {actAsAccountId === null && (
               <SectionMessage
                 appearance="warning"
-                title="actAs account not set"
+                title="Dispatch account not set"
               >
                 <Text>
-                  JEC dispatch is blocked until an actAs account is configured.
-                  Provisioning a channel sets this automatically.
+                  JEC dispatch is blocked until a dispatch account is
+                  configured. Provisioning a channel sets this automatically.
                 </Text>
               </SectionMessage>
             )}
@@ -308,7 +308,7 @@ const App = () => {
               isDisabled={busy || !actAsChanged || !pendingActAs}
               onClick={saveActAs}
             >
-              Save actAs account
+              Save dispatch account
             </Button>
           </Stack>
         </Stack>
